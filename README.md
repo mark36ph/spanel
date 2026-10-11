@@ -11,6 +11,10 @@ A custom hosting control panel for Projectabe, FactBurstQuiz, and future sites. 
 - Least-privilege website isolation and a restricted privileged operations service. PHP-FPM must never run as root or execute arbitrary commands.
 - No paid cPanel/Plesk dependency.
 
+## Preflight
+
+After configuring `config/config.local.php`, run `php bin/doctor.php` from the repository root. It performs read-only checks for the PHP runtime, required extensions, configuration permissions, database connectivity, required tables and migration checksums. It is a preflight only; it does not install packages or configure services.
+
 ## Project docs
 - [Architecture and lifecycle](docs/ARCHITECTURE.md)
 - [Website creation and DNS](docs/WEBSITE-CREATION-AND-DNS.md)
