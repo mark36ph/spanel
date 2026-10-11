@@ -1,0 +1,13 @@
+[Unit]
+Description=SPanel local operations socket
+
+[Socket]
+ListenStream=/run/spanel-ops/operations.sock
+SocketUser=root
+SocketGroup=spanel
+SocketMode=0660
+DirectoryMode=0750
+Accept=no
+
+[Install]
+WantedBy=sockets.target
