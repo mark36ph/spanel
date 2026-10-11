@@ -46,6 +46,7 @@ curl -sS -o /dev/null -w 'phpMyAdmin unauthenticated status: %{http_code}\n' htt
 - [ ] Every migration is marked applied and there are no checksum errors.
 - [ ] The login endpoint returns HTTP `200`.
 - [ ] Unauthenticated `/phpmyadmin/` returns HTTP `302` to SPanel sign-in rather than exposing a database login or returning a server error.
+- [ ] A direct browser/curl request to `/phpmyadmin-auth-check.php` returns HTTP `404`; the internal authorization endpoint must not be publicly callable.
 
 ## 3. Verify panel access
 
