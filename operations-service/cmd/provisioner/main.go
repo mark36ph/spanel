@@ -3,6 +3,11 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/hex"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,6 +26,8 @@ import (
 
 const maxInput = 16384
 const maxOutput = 16384
+const databaseSecretKeyPath = "/etc/spanel/database-secrets.key"
+const databaseSecretDirectory = "/var/lib/spanel/secrets"
 
 var labelPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
 
@@ -57,6 +64,12 @@ type provisioner struct {
 	nginxLinkCreated bool
 	poolReloaded bool
 	nginxReloaded bool
+	createdDatabase bool
+	createdDatabaseUser bool
+	secretStored bool
+	databaseName string
+	databaseUser string
+	secretPath string
 	phpVersion string
 }
 
@@ -76,11 +89,6 @@ func main() {
 	if req.Operation != "website.provision" {
 		fail("unsupported_operation")
 	}
-	if req.CreateDatabase {
-		// The initial release deliberately refuses DB creation until credential
-		// handoff/storage and MariaDB grant handling have their own reviewed path.
-		failFor(req, "database_provisioning_not_enabled")
-	}
 	version, err := choosePHP(req.PHPVersion)
 	if err != nil {
 		failFor(req, "php_runtime_unavailable")
@@ -90,7 +98,7 @@ func main() {
 		p.rollback()
 		failFor(req, "provisioning_failed")
 	}
-	write(response{OK:true, WebsiteID:req.WebsiteID, Domain:req.Domain, PHPVersion:version, DatabaseCreated:false})
+	write(response{OK:true, WebsiteID:req.WebsiteID, Domain:req.Domain, PHPVersion:version, DatabaseCreated:req.CreateDatabase})
 }
 
 func parseRequest(input []byte) (request, error) {
@@ -228,6 +236,7 @@ func choosePHP(requested *string) (string, error) {
 
 func (p *provisioner) run(r request) error {
 	id := strconv.FormatInt(r.WebsiteID, 10)
+	if r.CreateDatabase { if err := p.prepareDatabase(r.WebsiteID); err != nil { return err } }
 	username := p.username
 	pool := "spanel-site-"+id
 	root := p.rootPath
@@ -292,10 +301,20 @@ func (p *provisioner) run(r request) error {
 	}
 	if err := runCommand(15*time.Second, "/bin/systemctl", "reload", "nginx"); err != nil { return err }
 	p.nginxReloaded = true
+	if r.CreateDatabase { if err := p.createWebsiteDatabase(r.WebsiteID); err != nil { return err } }
 	return nil
 }
 
 func (p *provisioner) rollback() {
+	if p.secretStored && p.secretPath != "" { _ = os.Remove(p.secretPath) }
+	if p.createdDatabaseUser && p.databaseUser != "" {
+		_ = runWithInput(10*time.Second, "/usr/bin/mariadb", "DROP USER IF EXISTS '"+p.databaseUser+"'@'localhost';
+", "--batch", "--skip-column-names")
+	}
+	if p.createdDatabase && p.databaseName != "" {
+		_ = runWithInput(10*time.Second, "/usr/bin/mariadb", "DROP DATABASE IF EXISTS "+p.databaseName+";
+", "--batch", "--skip-column-names")
+	}
 	if p.nginxLinkCreated {
 		_ = os.Remove(p.nginxLink)
 	}
@@ -312,6 +331,121 @@ func (p *provisioner) rollback() {
 	if p.createdPublic { _ = os.Remove(p.publicPath) }
 	if p.createdUser { _ = runCommand(10*time.Second, "/usr/sbin/userdel", p.username) }
 	if p.createdRoot { _ = os.Remove(p.rootPath) }
+}
+
+
+func databaseIdentifiers(websiteID int64) (string, string, string, error) {
+	if websiteID < 1 { return "", "", "", errors.New("invalid website ID") }
+	id := strconv.FormatInt(websiteID, 10)
+	databaseName := "spw_" + id
+	databaseUser := "spu_" + id
+	secretPath := filepath.Join(databaseSecretDirectory, "website-db-"+id+".enc")
+	if len(databaseName) > 64 || len(databaseUser) > 32 { return "", "", "", errors.New("database identifier too long") }
+	return databaseName, databaseUser, secretPath, nil
+}
+
+func (p *provisioner) prepareDatabase(websiteID int64) error {
+	databaseName, databaseUser, secretPath, err := databaseIdentifiers(websiteID)
+	if err != nil { return err }
+	if !secureRootDirectory("/etc/spanel") || !secureRootDirectory("/var/lib/spanel") || !secureSecretDirectory(databaseSecretDirectory) {
+		return errors.New("protected database secret directories are missing or unsafe")
+	}
+	keyInfo, err := os.Lstat(databaseSecretKeyPath)
+	if err != nil || !keyInfo.Mode().IsRegular() || keyInfo.Mode()&os.ModeSymlink != 0 || keyInfo.Mode().Perm()&0077 != 0 {
+		return errors.New("database secret key is missing or unsafe")
+	}
+	keyStat, ok := keyInfo.Sys().(*syscall.Stat_t)
+	if !ok || keyStat.Uid != 0 { return errors.New("database secret key is not root-owned") }
+	keyText, err := os.ReadFile(databaseSecretKeyPath)
+	if err != nil { return err }
+	key, err := hex.DecodeString(strings.TrimSpace(string(keyText)))
+	if err != nil || len(key) != 32 { return errors.New("database secret key has an invalid format") }
+	if !regularExecutable("/usr/bin/mariadb") { return errors.New("MariaDB client unavailable") }
+	if exists(secretPath) || isSymlink(secretPath) { return errors.New("database secret already exists; refusing to overwrite") }
+	p.databaseName, p.databaseUser, p.secretPath = databaseName, databaseUser, secretPath
+	return nil
+}
+
+func secureSecretDirectory(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0077 != 0 { return false }
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	return ok && stat.Uid == 0
+}
+
+func sealSecret(key []byte, plaintext string) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil { return nil, err }
+	gcm, err := cipher.NewGCM(block)
+	if err != nil { return nil, err }
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil { return nil, err }
+	sealed := gcm.Seal(nonce, nonce, []byte(plaintext), []byte("spanel-website-database-v1"))
+	return []byte(base64.StdEncoding.EncodeToString(sealed)), nil
+}
+
+func openSecret(key, encoded []byte) (string, error) {
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(encoded)))
+	if err != nil { return "", err }
+	block, err := aes.NewCipher(key)
+	if err != nil { return "", err }
+	gcm, err := cipher.NewGCM(block)
+	if err != nil { return "", err }
+	if len(raw) < gcm.NonceSize() { return "", errors.New("encrypted secret is truncated") }
+	nonce, ciphertext := raw[:gcm.NonceSize()], raw[gcm.NonceSize():]
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, []byte("spanel-website-database-v1"))
+	if err != nil { return "", err }
+	return string(plaintext), nil
+}
+
+func (p *provisioner) createWebsiteDatabase(websiteID int64) error {
+	keyText, err := os.ReadFile(databaseSecretKeyPath)
+	if err != nil { return err }
+	key, err := hex.DecodeString(strings.TrimSpace(string(keyText)))
+	if err != nil || len(key) != 32 { return errors.New("database secret key has an invalid format") }
+	passwordBytes := make([]byte, 32)
+	if _, err := rand.Read(passwordBytes); err != nil { return err }
+	password := hex.EncodeToString(passwordBytes)
+	// Identifiers and password are generated ASCII, never supplied by a browser.
+	if err := runWithInput(20*time.Second, "/usr/bin/mariadb",
+		"CREATE DATABASE "+p.databaseName+" CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n",
+		"--batch", "--skip-column-names"); err != nil { return err }
+	p.createdDatabase = true
+	if err := runWithInput(20*time.Second, "/usr/bin/mariadb",
+		"CREATE USER '"+p.databaseUser+"'@'localhost' IDENTIFIED BY '"+password+"';\n",
+		"--batch", "--skip-column-names"); err != nil { return err }
+	p.createdDatabaseUser = true
+	grantSQL := "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON "+p.databaseName+".* TO '"+p.databaseUser+"'@'localhost';\n"
+	if err := runWithInput(20*time.Second, "/usr/bin/mariadb", grantSQL, "--batch", "--skip-column-names"); err != nil { return err }
+
+	encrypted, err := sealSecret(key, password)
+	if err != nil { return err }
+	temp, err := os.CreateTemp(databaseSecretDirectory, ".spanel-db-secret-*")
+	if err != nil { return err }
+	tempName := temp.Name()
+	defer os.Remove(tempName)
+	if err := temp.Chmod(0600); err != nil { temp.Close(); return err }
+	if _, err := temp.Write(encrypted); err != nil { temp.Close(); return err }
+	if err := temp.Sync(); err != nil { temp.Close(); return err }
+	if err := temp.Close(); err != nil { return err }
+	if err := os.Link(tempName, p.secretPath); err != nil { return err }
+	p.secretStored = true
+	return nil
+}
+
+func runWithInput(timeout time.Duration, name, input string, args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C"}
+	cmd.Stdin = strings.NewReader(input)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &limitedWriter{w: &stdout, limit: 8192}
+	cmd.Stderr = &limitedWriter{w: &stderr, limit: 8192}
+	err := cmd.Run()
+	if ctx.Err() != nil { return ctx.Err() }
+	if err != nil { return fmt.Errorf("fixed command failed: %s", name) }
+	return nil
 }
 
 func uid(username string) (int, error) {
