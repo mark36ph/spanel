@@ -48,22 +48,22 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [x] Add a CLI-only, advisory-lock-protected worker that checks job ownership, bounds helper output/time and records database metadata only after a matching helper response. Uncertain post-invocation failures are marked `rollback_required`. [x] Add status filters and recovery-required visibility to the operations page. [ ] Run worker tests in the Ubuntu VM.
 - [x] Add an exact typed request/response contract and automated tests for extra fields, type mismatches, domain mismatches, PHP version and database-result mismatches.
 - [x] Add read-only-first stale-operation reconciliation; explicit apply marks interrupted jobs `rollback_required` and never retries them automatically. [ ] Test concurrent worker/recovery behavior in the Ubuntu VM.
-- [ ] Implement and security-test the root-owned restricted typed operations helper; until then, the worker fails closed and real provisioning is disabled.
+- [x] Add an initial root-owned restricted Go helper for website provisioning without a database: fixed command arguments, validated domain/ID/PHP version, root-owned directory checks, resource collision refusal, PHP-FPM/Nginx config validation and best-effort rollback. [ ] Review and test all success/failure paths in the Ubuntu VM before enabling it.
 - [x] Add a bounded JSON-line protocol codec and fail-closed PHP client using a fixed local Unix socket with timeouts and response-size limits. [x] Add a systemd socket-activated Go service that runs unprivileged, accepts bounded typed requests, and implements read-only `website.preflight` facts. [ ] Add and security-review the separate write-capable provisioning component; `website.provision` remains explicitly disabled.
 - [ ] Validate domains, paths, PHP versions and generated resource names; include DNS preflight checks.
 - [x] Add a deterministic, non-privileged provisioning plan for website Linux usernames, document roots, PHP-FPM pools/sockets, Nginx templates and database identifiers, with CI validation tests including hidden-file deny-rule ordering (except `.well-known`). [ ] Integrate it into the restricted helper and verify generated configs on Ubuntu.
 - [x] Add a data-only provisioning preflight evaluator with strict typed facts, PHP/FPM compatibility, Nginx test status, disk-space and resource-conflict checks, DNS warnings, and optional database checks. [x] Connect the data-only preflight evaluator to a read-only fact collector and CLI. [ ] Verify the collector and CLI in the Ubuntu VM; Nginx validity, DNS matching, and MariaDB authentication/privileges remain unknown/unverified.
 - [x] Define a strict `website.preflight` operations request/response contract and a fixed, data-only provisioning workflow with ordered steps and rollback labels. [ ] Connect to the restricted service and test every step in the Ubuntu VM.
-- [ ] Create a dedicated Linux user and PHP-FPM pool per website.
-- [ ] Create an isolated document root and safe permissions.
-- [ ] Generate Nginx config from fixed templates, test it, enable it and roll back on failure.
+- [x] Implement dedicated Linux user, document root, PHP-FPM pool and Nginx site creation in the restricted helper (database creation and SSL remain disabled). [ ] Validate isolation and rollback in the Ubuntu VM.
+- [x] Create an isolated document root with site ownership and Nginx-readable group permissions in the restricted helper. [ ] Validate permissions and cross-site isolation in the Ubuntu VM.
+- [x] Generate Nginx config from a fixed template, test before/after enabling, and attempt rollback on failure. [ ] Validate Nginx behavior and rollback in the Ubuntu VM.
 - [x] Add a metadata-only website registration wizard that creates a pending record and provisioning job. [ ] Implement safe provisioning, status transitions, suspend/enable and removal flows (design: `docs/WEBSITE-CREATION-AND-DNS.md`).
 - [ ] Require confirmation and a backup/retention decision before destructive actions.
 
 ## Stage 5 — Per-website management
 - [x] Give each website a management overview with recent operation history and contextual links. [ ] Add a dedicated contextual sidebar as website modules are implemented.
 - [x] List primary domains, add aliases/subdomains with type validation, and remove pending non-primary domain records with audit logging. [ ] Add domain editing, DNS preflight and actual web-server configuration.
-- [ ] Create/manage website databases and least-privilege database users during and after website creation.
+- [ ] Create/manage website databases and least-privilege database users during and after website creation. The first helper rejects database-enabled requests until credential handoff and grants are implemented.
 - [x] Add strict reusable DNS-domain normalization and CI tests; runtime verification remains outstanding.
 - [x] Add additive metadata and one-time phpMyAdmin handoff-token schema plus a hash-only token storage service. [ ] Add integration tests and verify replay/expiry protection in the Ubuntu VM.
 - [ ] Install one phpMyAdmin instance per hosting server and add a per-database **Open phpMyAdmin** link that logs in as the correct website database user and selects that database using a short-lived, single-use secure handoff; test cross-website isolation.
