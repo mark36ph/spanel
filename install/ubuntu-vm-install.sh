@@ -91,8 +91,10 @@ info "Checking PHP syntax for the website and signon entry points"
 for php_file in \
     app/Security.php \
     app/Auth.php \
+    app/LoginRateLimiter.php \
     app/PhpMyAdminHandoff.php \
     public/site.php \
+    public/health.php \
     public/login.php \
     public/logout.php \
     public/phpmyadmin-launch.php \
