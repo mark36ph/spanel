@@ -61,7 +61,7 @@ Website-owned resources should have explicit ownership/foreign keys. Deleting a 
 
 ## Panel navigation
 
-- **Server administration:** overview, servers, health, services, global security, panel updates, audit log and system backups.
+- **Server administration:** overview, servers, health, services, global security, panel updates, audit log and system backups. The current build includes a read-only audit log with event/target filters and pagination; verified health monitoring remains outstanding.
 - **Website inventory:** search/filter all websites, their server, domain, state and resource usage; add a website.
 - **Website management:** selecting a website opens a dedicated context and sidebar for overview, domains, files, databases, email, cron jobs, SSL, backups, logs, Git deployment and settings.
 - Server-level actions remain separate from website-level actions to avoid confusing global changes with changes to one website.

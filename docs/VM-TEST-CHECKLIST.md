@@ -41,14 +41,24 @@ On the Windows host, open `http://127.0.0.1:8081`.
 - [ ] An unauthenticated request to `/dashboard.php` redirects to the login page.
 - [ ] Requests to `/config/config.local.php` and `/database/schema.sql` do not expose files.
 
-## 4. Test the website queue (metadata only)
+## 4. Test inventory, audit and operation visibility
+
+- [ ] Search websites by name, domain and numeric ID; confirm no-match and clear-filter states.
+- [ ] Filter websites by each lifecycle status and confirm results are accurate.
+- [ ] Search servers by name/hostname and filter by status/environment.
+- [ ] Open Audit log, filter by event type and target type, and verify pagination and HTML escaping.
+- [ ] Confirm the dashboard shows server count, queued jobs, recovery-required jobs and recent jobs.
+- [ ] Open a website and confirm its recent operation history matches the Operations page.
+- [ ] Confirm none of these screens implies that a queued job has changed the server.
+
+## 5. Test the website queue (metadata only)
 
 - [ ] Create one disposable test website using a reserved test domain such as `vm-test.example.test`.
 - [ ] Confirm a website record and a `website.provision` operation appear.
 - [ ] Confirm the operation is auditable and visible on the Operations page.
 - [ ] **Do not expect a live website yet.** The privileged `spanel-ops` helper is intentionally missing; the worker should fail closed instead of making server changes. Do not repeatedly retry the same job.
 
-## 5. Record findings
+## 6. Record findings
 
 For each failure, capture the exact command, output, page URL and relevant log excerpt. Avoid sharing passwords or the contents of `config/config.local.php`.
 

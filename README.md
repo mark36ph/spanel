@@ -32,6 +32,7 @@ After installation, `php bin/doctor.php` is a read-only preflight for PHP/extens
 - [Database migrations and phpMyAdmin](docs/DATABASE-MIGRATIONS-AND-PHPMYADMIN.md)
 - [Secure one-click phpMyAdmin login](docs/PHPMYADMIN-DIRECT-LOGIN.md)
 - [Roadmap](docs/ROADMAP.md)
+- [Audit log and security events](docs/ARCHITECTURE.md#isolation-and-server-operations)
 - [Local development setup](docs/DEVELOPMENT.md)
 - [Ubuntu VM acceptance checklist](docs/VM-TEST-CHECKLIST.md)
 - [Installer and updates design](docs/INSTALLER-AND-UPDATES.md)
