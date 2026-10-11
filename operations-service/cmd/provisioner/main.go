@@ -97,6 +97,9 @@ func main() {
 	}
 	p := &provisioner{phpVersion: version, websiteID: req.WebsiteID, username: "spw" + strconv.FormatInt(req.WebsiteID, 10), rootPath: "/var/www/spanel/sites/" + strconv.FormatInt(req.WebsiteID, 10), publicPath: "/var/www/spanel/sites/" + strconv.FormatInt(req.WebsiteID, 10) + "/public"}
 	if err := p.run(req); err != nil {
+		// Keep detailed diagnostics on stderr for the privileged worker to log
+		// server-side. The JSON response remains deliberately generic.
+		fmt.Fprintf(os.Stderr, "SPanel provisioning failed for website %d: %v\n", req.WebsiteID, err)
 		p.rollback()
 		failFor(req, "provisioning_failed")
 	}
