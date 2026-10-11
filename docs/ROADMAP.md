@@ -17,8 +17,8 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [x] Ubuntu VM setup notes.
 - [ ] Install VirtualBox and Ubuntu Server on the Windows PC.
 - [ ] Run the panel in the VM and verify PHP syntax, login, sessions, database connection and error handling.
-- [ ] Fix CLI administrator creation so password input is hidden.
-- [ ] Add basic automated checks and a documented test checklist.
+- [x] Hide CLI administrator password input on an interactive Unix terminal; verify in the Ubuntu VM later.
+- [x] Add GitHub Actions PHP syntax checks on pushes to `main` for PHP 8.2 and 8.3. [ ] Add functional/security checks and run the complete test checklist in the Ubuntu VM.
 - [x] Implement the initial CLI-only, advisory-lock-protected, checksum-aware migration runner with `--status` and `--dry-run`; VM/fresh-install/legacy-upgrade/failure-recovery/restore tests remain outstanding.
 
 ## Stage 2 — Repeatable CLI installation
@@ -40,7 +40,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Support adding more servers later without changing the website model.
 
 ## Stage 4 — Safe website provisioning
-- [ ] Build a job queue/status model for long-running operations, as specified in `docs/WEBSITE-CREATION-AND-DNS.md`.
+- [x] Add the initial `operation_jobs` table migration for queued/running/succeeded/failed/rollback-required/cancelled work. [ ] Implement and test the worker and restricted typed operations.
 - [ ] Build a restricted local operations service; never expose arbitrary shell execution to PHP.
 - [ ] Validate domains, paths, PHP versions and generated resource names; include DNS preflight checks.
 - [ ] Create a dedicated Linux user and PHP-FPM pool per website.
