@@ -65,21 +65,25 @@ Validation:
 - Every website has a valid hosting server.
 - Existing domain-to-website mappings remain unchanged.
 
-### Website database provisioning plan (data-only)
+### Website database provisioning
 
-Implemented in `app/DatabaseProvisioningPlan.php`, with validation in
-`tests/database_provisioning_plan_validation.php`. The plan derives identifiers
-from numeric server/website IDs, restricts the database account to `localhost`,
-limits the grant target to that website's database, defines a small explicit
-privilege allowlist, and emits only a non-secret `secret_ref`. It never creates
-a password, executes SQL, or changes the server. The manual-only PHP workflow
-includes this validation test but has not been run.
+The data-only plan is implemented in `app/DatabaseProvisioningPlan.php` with a
+manual-workflow validation test. The root-owned helper now generates a random
+database password, creates a database and dedicated `localhost` account, and
+applies explicit database-scoped privileges without `GRANT OPTION`. It stores
+the password as authenticated AES-GCM ciphertext in
+`/var/lib/spanel/secrets/website-db-<website-id>.enc`; the key is in
+`/etc/spanel/database-secrets.key`. Both locations are root-owned and protected
+from the panel account. The helper response and panel metadata contain no
+password, only a non-secret `secret_ref`.
 
-This is preparation only: the privileged helper continues to reject
-`create_database: true`. Do not enable database creation until protected secret
-storage and retrieval, password generation/rotation, exact MariaDB grants,
-partial-failure recovery, and cross-website isolation have been implemented and
-verified on the disposable Ubuntu VM.
+The installer creates the key and secret directory, builds/installs the helper,
+validates the exact sudoers rule, and enables the queue timer. The PHP worker
+records database metadata only after the helper response matches the request.
+These changes are implemented in code but have not been built or VM-tested.
+The encrypted secret store is not yet connected to a credential broker or
+phpMyAdmin sign-on adapter; do not expose passwords through the panel UI as a
+temporary workaround.
 
 ### Migration B — Website database metadata and ownership
 
@@ -130,16 +134,17 @@ Add tables when the corresponding feature is ready:
 
 ## Website creation wizard — database option
 
-During website creation:
-1. Checkbox: **Create a database now** (on by default, but can be unticked).
-2. If enabled, generate a safe unique database name and least-privilege database username based on a stable website ID plus a readable prefix.
-3. Generate a strong random password using a cryptographically secure random generator.
-4. Show the password once with a copy action, and state that it will not be recoverable in plain text. Offer password rotation if lost.
-5. Provision the database/user through the restricted operations service, with narrowly scoped SQL privileges.
-6. Store database name, username, server and status in metadata; store no plaintext password.
-7. Show connection details, a PHP connection example that reads credentials from a private config file outside the public document root, and an **Open phpMyAdmin** action that logs in as the database user and selects that database without exposing credentials in the URL.
-8. Test connection and ownership; if any step fails, show the exact failed step and safely clean up only resources created by this failed job.
-9. On website removal, never silently drop the database. Offer archive/backup and a separate explicit destructive confirmation.
+Current website creation behavior:
+1. The **Create a website database** checkbox is optional and currently unticked by default.
+2. The restricted helper derives database and username identifiers from the website ID.
+3. It generates a strong random password inside the privileged process.
+4. It creates a database and a `localhost` account with explicit grants only on that database.
+5. It encrypts and stores the password in the root-only secret store; it never shows or logs the password.
+6. The worker stores database name, username, server, active status and a non-secret secret reference in metadata.
+7. The website receives a basic test landing page and must pass a local HTTP health check before the helper reports success.
+8. The timer processes queued jobs; failures are recorded and uncertain partial state is marked `rollback_required`.
+
+Still required before a usable database-management experience is complete: a reviewed credential broker, phpMyAdmin installation/configuration and one-click sign-on, safe connection details, password rotation, and explicit backup/retention confirmation for destructive removal. Do not expose the password in the panel as a workaround.
 
 For a website that needs more than one database, allow additional databases from its management area with the same ownership and audit rules.
 
