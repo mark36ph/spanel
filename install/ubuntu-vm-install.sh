@@ -63,6 +63,18 @@ useradd --system --user-group --home-dir "$APP_DIR" --no-create-home --shell /us
 useradd --system --user-group --home-dir /var/lib/spanel/phpmyadmin --no-create-home --shell /usr/sbin/nologin spanel-pma
 PMA_UID="$(id -u spanel-pma)"
 [[ "$PMA_UID" -gt 0 ]] || fail "The phpMyAdmin PHP-FPM account must not be root."
+
+# phpMyAdmin's config (including its generated blowfish secret, if present)
+# must be readable by the isolated phpMyAdmin pool, never by the panel account.
+chown -R root:spanel-pma /etc/phpmyadmin
+find /etc/phpmyadmin -type d -exec chmod 0755 {} +
+find /etc/phpmyadmin -type f -exec chmod 0640 {} +
+if [[ -d /var/lib/phpmyadmin ]]; then
+    chown root:spanel-pma /var/lib/phpmyadmin
+    chmod 0750 /var/lib/phpmyadmin
+    find /var/lib/phpmyadmin -maxdepth 1 -type f -exec chown root:spanel-pma {} + -exec chmod 0640 {} +
+    find /var/lib/phpmyadmin -mindepth 1 -maxdepth 1 -type d -exec chown spanel-pma:spanel-pma {} + -exec chmod 0700 {} +
+fi
 APP_UID="$(id -u "$APP_USER")"
 APP_SHELL="$(getent passwd "$APP_USER" | cut -d: -f7)"
 [[ "$APP_UID" -gt 0 && "$APP_SHELL" == "/usr/sbin/nologin" ]] || fail "The dedicated panel account is not safely configured."
@@ -245,8 +257,8 @@ $cfg['Servers'][1]['SignonURL'] = $spanelBaseUrl . '/login.php';
 $cfg['Servers'][1]['LogoutURL'] = $spanelBaseUrl . '/phpmyadmin-logout.php';
 $cfg['Servers'][1]['hide_connection_errors'] = true;
 PMA_CONFIG
-chown root:root /etc/phpmyadmin/conf.d/99-spanel.php
-chmod 0644 /etc/phpmyadmin/conf.d/99-spanel.php
+chown root:spanel-pma /etc/phpmyadmin/conf.d/99-spanel.php
+chmod 0640 /etc/phpmyadmin/conf.d/99-spanel.php
 
 if ! "/usr/sbin/php-fpm${PHP_VERSION}" -t; then
     rm -f "$PHP_FPM_POOL" "$PHP_PMA_FPM_POOL"
