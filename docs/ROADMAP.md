@@ -18,7 +18,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Install VirtualBox and Ubuntu Server on the Windows PC.
 - [ ] Run the panel in the VM and verify PHP syntax, login, sessions, database connection and error handling.
 - [x] Hide CLI administrator password input on an interactive Unix terminal; verify in the Ubuntu VM later.
-- [x] Add GitHub Actions PHP syntax checks on pushes to `main` for PHP 8.2 and 8.3. [ ] Add functional/security checks and run the complete test checklist in the Ubuntu VM.
+- [x] Keep GitHub Actions checks manual-only during development (PHP 8.2/8.3 syntax and validation suites). [ ] Run the complete acceptance checklist in the private Ubuntu VM when ready.
 - [x] Implement the initial CLI-only, advisory-lock-protected, checksum-aware migration runner with `--status` and `--dry-run`; VM/fresh-install/legacy-upgrade/failure-recovery/restore tests remain outstanding.
 
 ## Stage 2 — Repeatable CLI installation
