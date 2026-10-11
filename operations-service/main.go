@@ -56,6 +56,10 @@ func main() {
 		fmt.Fprintln(os.Stderr, "command-line arguments are not supported")
 		os.Exit(2)
 	}
+	if os.Getenv("LISTEN_PID") != strconv.Itoa(os.Getpid()) || os.Getenv("LISTEN_FDS") != "1" {
+		fmt.Fprintln(os.Stderr, "expected exactly one systemd-activated socket")
+		os.Exit(1)
+	}
 	socketFile := os.NewFile(3, "systemd-operations-socket")
 	if socketFile == nil {
 		fmt.Fprintln(os.Stderr, "systemd socket activation descriptor is missing")
