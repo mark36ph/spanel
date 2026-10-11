@@ -216,11 +216,12 @@ chmod 0644 "$PHP_PMA_FPM_POOL"
 [[ -f /etc/phpmyadmin/config.inc.php ]] || fail "phpMyAdmin configuration file is missing."
 grep -Fq '/etc/phpmyadmin/conf.d' /etc/phpmyadmin/config.inc.php || fail "The installed phpMyAdmin configuration does not load /etc/phpmyadmin/conf.d; refusing to continue with an unconfigured login."
 install -d -o root -g root -m 0755 /etc/phpmyadmin/conf.d
-cat > /etc/phpmyadmin/conf.d/99-spanel.php <<'PMA_CONFIG'
+PANEL_BASE_URL="$(php -r '$c = require "/opt/spanel/config/config.local.php"; echo $c["app"]["base_url"] ?? "";')"
+[[ "$PANEL_BASE_URL" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]] || fail "The panel base URL is invalid for phpMyAdmin signon configuration."
+sed "s|__SPANEl_BASE_URL__|$PANEL_BASE_URL|g" > /etc/phpmyadmin/conf.d/99-spanel.php <<'PMA_CONFIG'
 <?php
 declare(strict_types=1);
-$spanelLocalConfig = require '/opt/spanel/config/config.local.php';
-$spanelBaseUrl = rtrim((string)($spanelLocalConfig['app']['base_url'] ?? ''), '/');
+$spanelBaseUrl = '__SPANEl_BASE_URL__';
 $spanelSecureCookie = str_starts_with($spanelBaseUrl, 'https://');
 $cfg['AllowArbitraryServer'] = false;
 $cfg['CookieSameSite'] = 'Strict';
