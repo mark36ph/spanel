@@ -5,6 +5,18 @@ final class Security
 {
     public static function startSession(array $config): void
     {
+        // Apply baseline response protections before any page output.
+        if (!headers_sent()) {
+            header('X-Content-Type-Options: nosniff');
+            header('X-Frame-Options: DENY');
+            header('Referrer-Policy: strict-origin-when-cross-origin');
+            header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+            header('Cache-Control: no-store, private');
+            if (str_starts_with((string)($config['app']['base_url'] ?? ''), 'https://')) {
+                header('Strict-Transport-Security: max-age=31536000');
+            }
+        }
+
         if (session_status() === PHP_SESSION_ACTIVE) {
             return;
         }
