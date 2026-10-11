@@ -21,14 +21,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Select a valid environment.';
     } else {
         try {
+            $pdo->beginTransaction();
             $stmt = $pdo->prepare('INSERT INTO servers (name, hostname, environment, status, is_local) VALUES (:name, :hostname, :environment, :status, 0)');
             $stmt->execute(['name' => $name, 'hostname' => $hostname, 'environment' => $environment, 'status' => 'pending']);
             $serverId = (int)$pdo->lastInsertId();
             $audit = $pdo->prepare("INSERT INTO audit_events (admin_id, event_type, target_type, target_id, details_json) VALUES (:admin_id, 'server.registered', 'server', :target_id, :details)");
             $audit->execute(['admin_id' => (int)$admin['id'], 'target_id' => (string)$serverId, 'details' => json_encode(['hostname' => $hostname, 'environment' => $environment], JSON_THROW_ON_ERROR)]);
+            $pdo->commit();
             $success = 'Server record created. This does not connect to or configure the remote machine yet.';
-        } catch (PDOException $e) {
-            if ((string)$e->getCode() === '23000') {
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            if ($e instanceof PDOException && (string)$e->getCode() === '23000') {
                 $error = 'A server with that hostname already exists.';
             } else {
                 error_log('SPanel server registration failed: ' . $e->getMessage());
