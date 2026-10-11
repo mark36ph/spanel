@@ -101,6 +101,7 @@ for php_file in \
     public/create-site.php \
     bin/worker.php \
     bin/doctor.php \
+    bin/health-check.php \
     install/helpers/spanel-pma-credential-broker.php; do
     php -l "$APP_DIR/$php_file" >/dev/null || fail "PHP syntax validation failed for $php_file."
 done
@@ -196,6 +197,8 @@ fi
 [[ "$(stat -c '%U:%G:%a' /var/lib/spanel/secrets)" == "root:root:700" ]] || fail "Database secret directory permissions are unexpected."
 install -o root -g root -m 0644 "$APP_DIR/install/systemd/spanel-worker.service" /etc/systemd/system/spanel-worker.service
 install -o root -g root -m 0644 "$APP_DIR/install/systemd/spanel-worker.timer" /etc/systemd/system/spanel-worker.timer
+install -o root -g root -m 0644 "$APP_DIR/install/systemd/spanel-health-check.service" /etc/systemd/system/spanel-health-check.service
+install -o root -g root -m 0644 "$APP_DIR/install/systemd/spanel-health-check.timer" /etc/systemd/system/spanel-health-check.timer
 systemctl daemon-reload
 printf 'Restricted helper installed; database credentials will be encrypted in a root-only store.\n'
 
@@ -388,6 +391,9 @@ printf 'phpMyAdmin signon endpoint and internal authorization route passed their
 info "Enabling the queued provisioning worker"
 systemctl enable --now spanel-worker.timer
 systemctl is-active --quiet spanel-worker.timer || fail "The SPanel provisioning timer did not start."
+systemctl enable --now spanel-health-check.timer
+systemctl is-active --quiet spanel-health-check.timer || fail "The SPanel health-check timer did not start."
+sudo -u "$APP_USER" php "$APP_DIR/bin/health-check.php" || fail "The initial local health check failed; inspect the systemd journal and panel database before proceeding."
 
 # The document root must never expose application configuration or source data.
 for protected_path in /config/config.local.php /config/config.example.php /database/schema.sql /bin/doctor.php; do
