@@ -37,8 +37,8 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 ## Stage 3 — Core data model and server inventory
 - [x] Add the first forward migration for `website_domains`, preserving `websites.domain` for compatibility and refusing invalid/normalized-colliding domains or websites without server assignments. [ ] Run and test the migration against fresh and representative legacy databases in the Ubuntu VM.
 - [x] Add server inventory UI and metadata-only server registration, and add local-server registration to the installer draft. [ ] Verify registration in the Ubuntu VM.
-- [ ] Track server health, maintenance state, capabilities and panel/agent version.
-- [x] Add server inventory, website inventory links and per-website management overview. [x] Add website inventory search/status filters and latest-operation visibility. [x] Add server inventory search/status/environment filters. [ ] Add verified health checks.
+- [x] Add local read-only service health snapshots and a scheduled collector for Nginx, MariaDB, PHP-FPM, the worker timer and disk space; VM verification remains outstanding. [ ] Track remote server health, maintenance state, capabilities and panel/agent version.
+- [x] Add server inventory, website inventory links and per-website management overview. [x] Add website inventory search/status filters and latest-operation visibility. [x] Add server inventory search/status/environment filters. [ ] Verify local health checks in the Ubuntu VM.
 - [ ] Support adding more servers later without changing the website model.
 
 ## Stage 4 — Safe website provisioning
@@ -59,7 +59,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [x] Create an isolated document root with site ownership and Nginx-readable group permissions in the restricted helper. [ ] Validate permissions and cross-site isolation in the Ubuntu VM.
 - [x] Generate Nginx config from a fixed template, test before/after enabling, and attempt rollback on failure. [ ] Validate Nginx behavior and rollback in the Ubuntu VM.
 - [x] Connect the website creation wizard to queued provisioning, optional database creation, success/failure metadata and a 30-second systemd queue timer. [ ] VM-test the end-to-end flow; suspend/enable and safe removal remain planned (design: `docs/WEBSITE-CREATION-AND-DNS.md`).
-- [ ] Require confirmation and a backup/retention decision before destructive actions.
+- [ ] Implement the removal workflow with typed confirmation, backup/retention choice, dependency checks, audit trail, dry-run, restricted-helper validation and tested recovery. Design: `docs/SAFE-WEBSITE-REMOVAL.md`.
 
 ## Stage 5 — Per-website management
 - [x] Give each website a management overview with recent operation history and contextual links. [ ] Add a dedicated contextual sidebar as website modules are implemented.
@@ -79,10 +79,11 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 
 ## Stage 6 — Hosting services
 - [ ] Issue and renew SSL certificates; show expiry and errors.
-- [ ] Back up panel metadata, website files and website databases with retention settings.
+- [x] Document the minimum manual backup/restore and interrupted-operation recovery procedure; this is preparation only, not an automated backup system. See `docs/BACKUP-RESTORE-AND-RECOVERY.md`.
+- [ ] Implement automated panel/site/database backups with retention, encryption and integrity checks.
 - [ ] Test restores, not just backup creation.
 - [ ] Add email accounts only after reviewing deliverability, spam prevention, SPF, DKIM, DMARC and abuse controls.
-- [ ] Add health monitoring, service status and alerts. [x] Add a read-only audit log UI with exact event/target filters and pagination. [ ] Add integration tests and verify audit coverage/retention in the Ubuntu VM.
+- [x] Add local service status monitoring with a five-minute systemd timer and a panel health page; VM verification remains pending. [ ] Add remote health monitoring and alerts. [x] Add a read-only audit log UI with exact event/target filters and pagination. [ ] Add integration tests and verify audit coverage/retention in the Ubuntu VM.
 
 ## Stage 7 — Panel updates from GitHub
 - [ ] Add installed-version and available-version display.
