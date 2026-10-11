@@ -226,6 +226,7 @@ declare(strict_types=1);
 $spanelBaseUrl = '__SPANEl_BASE_URL__';
 $spanelSecureCookie = str_starts_with($spanelBaseUrl, 'https://');
 $cfg['AllowArbitraryServer'] = false;
+$cfg['SessionSavePath'] = '/var/lib/spanel/phpmyadmin-sessions';
 $cfg['CookieSameSite'] = 'Strict';
 $cfg['CookieSecure'] = $spanelSecureCookie;
 $cfg['Servers'][1]['auth_type'] = 'signon';
