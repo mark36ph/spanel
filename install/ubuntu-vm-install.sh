@@ -3,7 +3,7 @@ set -Eeuo pipefail
 umask 027
 
 # First-install bootstrap for a disposable/private Ubuntu Server VM.
-# This installs the SPanel control panel only; hosted-site provisioning is separate.
+# This installs SPanel and its restricted local website/database provisioner.
 readonly APP_DIR="/opt/spanel"
 readonly APP_USER="spanel"
 readonly DB_NAME="spanel"
@@ -21,6 +21,7 @@ source /etc/os-release
 [[ "${ID:-}" == "ubuntu" && "${VERSION_ID:-}" == "24.04" ]] || fail "This first installer supports Ubuntu Server 24.04 LTS only."
 [[ -f "$(pwd)/database/schema.sql" && -f "$(pwd)/bin/migrate.php" && -f "$(pwd)/config/config.example.php" ]] || fail "Run this script from the root of the SPanel repository checkout."
 [[ ! -e "$APP_DIR" ]] || fail "$APP_DIR already exists. This installer refuses to overwrite an existing install or its configuration."
+[[ ! -e "/etc/spanel" && ! -e "/var/lib/spanel" ]] || fail "SPanel secret-store paths already exist. Inspect them first and use a clean disposable VM."
 [[ ! -e "$NGINX_SITE" && ! -e "$NGINX_LINK" ]] || fail "An SPanel Nginx site already exists; inspect it before proceeding."
 command -v apt-get >/dev/null 2>&1 || fail "apt-get is required."
 command -v systemctl >/dev/null 2>&1 || fail "systemd is required."
@@ -35,7 +36,7 @@ fi
 info "Installing panel runtime packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y nginx mariadb-server php-fpm php-cli php-mysql php-mbstring php-xml php-curl php-intl git ca-certificates tar openssl curl
+apt-get install -y nginx mariadb-server php-fpm php-cli php-mysql php-mbstring php-xml php-curl php-intl git ca-certificates tar openssl curl golang-go
 
 PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
 PHP_VERSION_ID="$(php -r 'echo PHP_VERSION_ID;')"
@@ -58,6 +59,14 @@ tar --exclude='./.git' --exclude='./config/config.local.php' -C "$(pwd)" -cf - .
 chown -R root:www-data "$APP_DIR"
 find "$APP_DIR" -type d -exec chmod 0750 {} +
 find "$APP_DIR" -type f -exec chmod 0640 {} +
+
+info "Preparing protected website database credential storage"
+install -d -o root -g root -m 0750 /etc/spanel
+install -d -o root -g root -m 0700 /var/lib/spanel /var/lib/spanel/secrets
+openssl rand -hex 32 > /etc/spanel/database-secrets.key
+chown root:root /etc/spanel/database-secrets.key
+chmod 0600 /etc/spanel/database-secrets.key
+[[ "$(stat -c '%U:%G:%a' /etc/spanel/database-secrets.key)" == "root:root:600" ]] || fail "Database secret key permissions are unexpected."
 
 info "Starting MariaDB and generating private panel database credentials"
 systemctl enable --now mariadb
@@ -118,6 +127,23 @@ ON DUPLICATE KEY UPDATE
   is_local = 1,
   updated_at = CURRENT_TIMESTAMP;
 SQL
+
+info "Building and installing the restricted website/database provisioner"
+install -d -o root -g root -m 0755 /var/www/spanel/sites
+(
+  cd "$APP_DIR/operations-service"
+  go build -trimpath -buildvcs=false -o /tmp/spanel-ops-provisioner ./cmd/provisioner
+)
+install -o root -g root -m 0755 /tmp/spanel-ops-provisioner /usr/local/sbin/spanel-ops
+rm -f /tmp/spanel-ops-provisioner
+install -o root -g root -m 0440 "$APP_DIR/install/sudoers/spanel-ops" /etc/sudoers.d/spanel-ops
+if ! visudo -cf /etc/sudoers.d/spanel-ops; then
+    rm -f /etc/sudoers.d/spanel-ops /usr/local/sbin/spanel-ops
+    fail "Restricted operations sudoers configuration failed validation."
+fi
+[[ "$(stat -c '%U:%G:%a' /usr/local/sbin/spanel-ops)" == "root:root:755" ]] || fail "Restricted helper ownership or permissions are unexpected."
+[[ "$(stat -c '%U:%G:%a' /var/lib/spanel/secrets)" == "root:root:700" ]] || fail "Database secret directory permissions are unexpected."
+printf 'Restricted helper installed; database credentials will be encrypted in a root-only store.\n'
 
 info "Configuring a dedicated PHP-FPM pool for the non-root SPanel account"
 cat > "$PHP_FPM_POOL" <<POOL
@@ -227,6 +253,6 @@ Next:
 This is a private development install. Do not expose it to the public internet.
 The installer runs as root for system setup; panel commands run as the dedicated
 non-root 'spanel' account. Application code stays root-owned and read-only to that
-account. Hosted-site database creation and secure phpMyAdmin sign-on are not enabled
-by this installer and must be completed/tested separately.
+account. The fixed root-owned helper can provision isolated websites and optional
+MariaDB databases. Direct phpMyAdmin sign-on, DNS automation and SSL remain disabled.
 DONE
