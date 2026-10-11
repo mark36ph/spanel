@@ -11,12 +11,15 @@ $config = require $configPath;
 Security::startSession($config);
 header('Referrer-Policy: no-referrer');
 
-setcookie('spanel_pma_signon', '', [
-    'expires' => time() - 3600,
-    'path' => '/phpmyadmin/',
-    'secure' => str_starts_with((string)($config['app']['base_url'] ?? ''), 'https://'),
-    'httponly' => true,
-    'samesite' => 'Strict',
-]);
+$securePmaCookie = str_starts_with((string)($config['app']['base_url'] ?? ''), 'https://');
+foreach (['spanel_pma_signon', 'phpMyAdmin'] as $cookieName) {
+    setcookie($cookieName, '', [
+        'expires' => time() - 3600,
+        'path' => '/phpmyadmin/',
+        'secure' => $securePmaCookie,
+        'httponly' => true,
+        'samesite' => 'Strict',
+    ]);
+}
 header('Location: /dashboard.php', true, 303);
 exit;
