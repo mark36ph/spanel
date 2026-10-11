@@ -360,6 +360,16 @@ info "Verifying privilege separation and application permissions"
 if sudo -u "$APP_USER" test -w "$APP_DIR/bin/worker.php"; then
     fail "The panel account must not be able to modify its worker code."
 fi
+[[ "$(id -u spanel-pma)" -gt 0 ]] || fail "phpMyAdmin must run as a non-root account."
+[[ "$(getent passwd spanel-pma | cut -d: -f7)" == "/usr/sbin/nologin" ]] || fail "The phpMyAdmin account must not have an interactive login shell."
+if sudo -u "$APP_USER" test -r /etc/phpmyadmin/conf.d/99-spanel.php; then
+    fail "The SPanel account must not be able to read phpMyAdmin's private configuration."
+fi
+if sudo -u "$APP_USER" test -r /var/lib/spanel/phpmyadmin-sessions; then
+    fail "The SPanel account must not be able to read phpMyAdmin signon sessions."
+fi
+sudo -u spanel-pma test -r /etc/phpmyadmin/conf.d/99-spanel.php || fail "The isolated phpMyAdmin account cannot read its configuration."
+sudo -u spanel-pma test -r /var/lib/spanel/phpmyadmin-sessions || fail "The isolated phpMyAdmin account cannot access its session store."
 printf 'SPanel runs under non-root account %s (UID %s); application code remains root-owned.\n' "$APP_USER" "$(id -u "$APP_USER")"
 
 info "Running the read-only preflight"
