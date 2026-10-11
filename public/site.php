@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $domains = $pdo->prepare('SELECT domain, domain_type, is_primary, status, created_at FROM website_domains WHERE website_id = :id ORDER BY is_primary DESC, domain ASC');
 $domains->execute(['id' => $id]);
 $domains = $domains->fetchAll();
-$dbs = $pdo->prepare('SELECT database_name, database_user, status, created_at FROM website_databases WHERE website_id = :id ORDER BY database_name ASC');
+$dbs = $pdo->prepare('SELECT database_name, database_user, created_at FROM website_databases WHERE website_id = :id ORDER BY database_name ASC');
 $dbs->execute(['id' => $id]);
 $databases = $dbs->fetchAll();
 
@@ -80,6 +80,6 @@ renderHeader((string)$website['name'], 'sites');
 <div class="section-heading"><div><h3>Add domain or subdomain</h3><p class="muted">The domain must not already belong to another website.</p></div></div>
 <div class="login-card"><form method="post" class="form-stack"><input type="hidden" name="_csrf" value="<?= Security::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="add_domain"><label>Domain name<input name="domain" placeholder="www.example.com" maxlength="253" required pattern="(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*"></label><button class="primary-button" type="submit">Add domain</button></form></div>
 <div class="section-heading"><div><h3>Databases</h3><p class="muted">Database provisioning and direct phpMyAdmin login will be enabled through the restricted operations service.</p></div></div>
-<?php if ($databases): ?><div class="site-table-wrap"><table class="site-table"><thead><tr><th>Database</th><th>Username</th><th>Status</th><th>Tools</th></tr></thead><tbody><?php foreach ($databases as $db): ?><tr><td><strong><?= Security::escape($db['database_name']) ?></strong></td><td><?= Security::escape($db['database_user']) ?></td><td><?= Security::escape($db['status'] ?? 'Tracked') ?></td><td><span class="muted">phpMyAdmin integration pending</span></td></tr><?php endforeach; ?></tbody></table></div><?php else: ?><div class="empty-state"><div class="empty-icon">▤</div><h3>No databases tracked</h3><p>Database creation will be added after the restricted server operations service is ready.</p></div><?php endif; ?>
+<?php if ($databases): ?><div class="site-table-wrap"><table class="site-table"><thead><tr><th>Database</th><th>Username</th><th>Status</th><th>Tools</th></tr></thead><tbody><?php foreach ($databases as $db): ?><tr><td><strong><?= Security::escape($db['database_name']) ?></strong></td><td><?= Security::escape($db['database_user']) ?></td><td>Tracked</td><td><span class="muted">phpMyAdmin integration pending</span></td></tr><?php endforeach; ?></tbody></table></div><?php else: ?><div class="empty-state"><div class="empty-icon">▤</div><h3>No databases tracked</h3><p>Database creation will be added after the restricted server operations service is ready.</p></div><?php endif; ?>
 <div class="notice"><strong>Safe development mode</strong><p>This page currently updates panel metadata only. It does not run shell commands, change public DNS, provision system users, or modify Nginx.</p></div>
 <?php renderFooter(); ?>
