@@ -16,9 +16,19 @@ final class DatabaseProvisioningPlan
         'UPDATE',
         'DELETE',
         'CREATE',
+        'DROP',
         'ALTER',
         'INDEX',
         'REFERENCES',
+        'CREATE TEMPORARY TABLES',
+        'LOCK TABLES',
+        'CREATE VIEW',
+        'SHOW VIEW',
+        'CREATE ROUTINE',
+        'ALTER ROUTINE',
+        'EXECUTE',
+        'EVENT',
+        'TRIGGER',
     ];
 
     public static function build(int $serverId, int $websiteId): array
