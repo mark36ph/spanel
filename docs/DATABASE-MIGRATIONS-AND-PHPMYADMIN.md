@@ -93,8 +93,8 @@ Add tables when the corresponding feature is ready:
 ## phpMyAdmin plan
 
 - Install and maintain one supported phpMyAdmin instance per hosting server, rather than one copy per website.
-- Do not expose it as an unrestricted public database login page by default. Provide an authenticated SPanel entry point with secure session handling and HTTPS; additionally restrict access by network/IP or VPN where practical.
-- Avoid passing database passwords in URLs, query strings, browser storage or logs.
+- Do not expose it as an unrestricted public database login page by default. Provide an authenticated SPanel entry point with secure session handling and HTTPS; additionally restrict access by network/IP or VPN where practical. Each database row must have an **Open phpMyAdmin** link that signs the administrator in as that website's database user and selects the database using the reviewed one-time handoff design in `docs/PHPMYADMIN-DIRECT-LOGIN.md`.
+- Avoid passing database passwords in URLs, query strings, browser storage or logs. Store the credential encrypted in a protected root-owned secrets store, with its key kept separately, so the secure handoff can authenticate without asking for the password every time.
 - The selected website's database user should only have privileges for its own database. SPanel administrator access must be an explicit, separately authorized action.
 - Use a dedicated supported authentication integration or a short-lived server-side session/credential handoff that does not leak secrets to the browser. Do not invent a home-grown passwordless bridge without reviewing phpMyAdmin's supported authentication mechanisms.
 - Keep phpMyAdmin patched and limit upload/import size and execution time safely.
@@ -110,7 +110,7 @@ During website creation:
 4. Show the password once with a copy action, and state that it will not be recoverable in plain text. Offer password rotation if lost.
 5. Provision the database/user through the restricted operations service, with narrowly scoped SQL privileges.
 6. Store database name, username, server and status in metadata; store no plaintext password.
-7. Show connection details, a PHP connection example that reads credentials from a private config file outside the public document root, and a **Open phpMyAdmin** action.
+7. Show connection details, a PHP connection example that reads credentials from a private config file outside the public document root, and an **Open phpMyAdmin** action that logs in as the database user and selects that database without exposing credentials in the URL.
 8. Test connection and ownership; if any step fails, show the exact failed step and safely clean up only resources created by this failed job.
 9. On website removal, never silently drop the database. Offer archive/backup and a separate explicit destructive confirmation.
 
@@ -142,7 +142,7 @@ Run on a disposable Ubuntu VM and a fresh test database:
 - Two concurrent migration attempts (only one proceeds).
 - Backup and restore before and after migrations.
 - Database provisioning failure at each step; no unrelated resources are deleted.
-- phpMyAdmin access control and cross-website database isolation.
+- phpMyAdmin one-click login, replay/expiry protection, access control and cross-website database isolation.
 
 ## Definition of done
 
