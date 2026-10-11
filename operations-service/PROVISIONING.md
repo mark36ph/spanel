@@ -18,15 +18,15 @@ This is the root-owned typed helper installed at `/usr/local/sbin/spanel-ops`. T
 
 ## Installation
 
-The first-install script builds the helper from `operations-service/cmd/provisioner`, installs it root-owned, creates the protected secret-store paths/key, validates and installs `install/sudoers/spanel-ops`, and installs/enables the non-root `spanel-worker.timer`. The timer checks the operation queue every 30 seconds; each worker run handles at most one job.
+The first-install script builds the helper from `operations-service/cmd/provisioner`, installs it root-owned, creates the protected secret-store paths/key, installs phpMyAdmin without Apache, configures a separate `spanel-pma` PHP-FPM pool, installs the root-owned credential broker, validates and installs `install/sudoers/spanel-ops`, and enables the non-root `spanel-worker.timer`. The timer checks the operation queue every 30 seconds; each worker run handles at most one job.
 
 The installer targets a clean, disposable Ubuntu Server 24.04 LTS VM. It has not yet passed VM acceptance testing. GitHub Actions remain manual-only and must not be started automatically during development.
 
 ## Important limitations
 
 - Database creation and website setup are implemented in code but **not yet built or VM-tested**. Do not use this on a production host.
-- The encrypted secret store is currently write-only from the SPanel web application boundary. A reviewed, one-time credential broker and phpMyAdmin sign-on integration are still required; no database password is exposed to the panel UI.
-- Direct phpMyAdmin login, SSL issuance, DNS automation, website suspension/removal, backups/restores and safe update/rollback are not enabled end-to-end.
+- The SPanel site page and launch endpoint now use a short-lived, single-use handoff with phpMyAdmin's documented signon mode. The root-owned broker validates the active admin, local server, website/database ownership and token binding, then writes credentials only to a root-owned session file accessible to the separate `spanel-pma` pool. It returns no database password to the SPanel application. This flow is code-complete but not yet VM-tested.
+- phpMyAdmin signon, the broker's session permissions, cookie expiry/logout and cross-site isolation still require VM acceptance tests. SSL issuance, DNS automation, website suspension/removal, backups/restores and safe update/rollback are not enabled end-to-end.
 - The helper's rollback is best-effort, not a transaction across Linux accounts, MariaDB and system daemons. If a job is marked `rollback_required`, inspect the host before any retry.
 
 ## Manual helper inspection
