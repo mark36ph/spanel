@@ -1,0 +1,27 @@
+[Unit]
+Description=SPanel read-only local service health check
+After=network.target mariadb.service nginx.service
+Wants=mariadb.service nginx.service
+
+[Service]
+Type=oneshot
+User=spanel
+Group=www-data
+WorkingDirectory=/opt/spanel
+ExecStart=/usr/bin/php /opt/spanel/bin/health-check.php
+UMask=0077
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+PrivateDevices=true
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+TimeoutStartSec=30
+StandardOutput=journal
+StandardError=journal
