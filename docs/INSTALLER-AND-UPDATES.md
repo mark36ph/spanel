@@ -6,7 +6,7 @@ SPanel must be installable from the command line on both the development Ubuntu 
 
 ## Command-line installation
 
-Target interface (planned; not implemented yet):
+Current development installer: `install/ubuntu-vm-install.sh`. It supports a clean Ubuntu Server 24.04 LTS VM and has not yet passed VM acceptance testing. The broader production installer/updater flow below remains planned.
 
 ```bash
 # Download a reviewed installer from the official SPanel repository, inspect it,
@@ -19,7 +19,8 @@ The published installation instructions must give the exact verified download UR
 The installer should:
 1. Check OS/version, root privileges, network access, free disk space and required commands before making changes.
 2. Install only required packages (Nginx, PHP-FPM/extensions, MariaDB client/server as appropriate, Git and supporting tools).
-3. Create a dedicated panel system account and directories with restrictive ownership/permissions; keep the web document root pointed at `public/`.
+3. Use root only for system-level setup, then create a dedicated non-root panel system account with a non-login shell. Refuse to adopt an existing, unverified account.
+4. Keep application code and local configuration root-owned and read-only to the panel account; keep the web document root pointed at `public/`.
 4. Configure MariaDB with a dedicated least-privilege application user. Never put real credentials in Git.
 5. Create a local configuration file from the example, generate strong secrets locally, and set safe permissions. Do not overwrite existing config during reinstall/update.
 6. Apply versioned database migrations and record the installed version.
@@ -45,6 +46,8 @@ Update flow:
 8. Record actor, release, result and timestamps in the audit log; keep logs free of secrets.
 
 ## Privilege boundary
+
+The current installer runs as root for system setup, creates the dedicated `spanel` system account with `/usr/sbin/nologin`, and runs panel CLI setup/doctor commands as that account. Application files remain `root:www-data`; the local configuration is `root:www-data` mode `0640`. The installer verifies the panel UID is nonzero, the shell is non-login, and the panel account cannot modify its worker code. The account receives no unrestricted sudo rights; the separate provisioning helper and exact sudoers rule are installed manually only during the disposable-VM test.
 
 The PHP-FPM user must not be root and must not be able to run arbitrary commands. The web UI should call a narrow local updater service or root-owned helper with a fixed allowlist of operations. It must validate the requested approved release again on the privileged side. The helper must not accept arbitrary paths, shell fragments, repository URLs, or commands.
 
