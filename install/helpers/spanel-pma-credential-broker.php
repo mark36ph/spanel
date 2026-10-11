@@ -232,7 +232,14 @@ try {
         throw new RuntimeException('panel_config_permissions_invalid');
     }
 
-    require_once '/opt/spanel/app/PhpMyAdminHandoff.php';
+    $handoffClassPath = '/opt/spanel/app/PhpMyAdminHandoff.php';
+    $handoffClassStat = brokerLstat($handoffClassPath);
+    if (($handoffClassStat['mode'] & 0170000) !== 0100000
+        || (int)$handoffClassStat['uid'] !== 0
+        || (($handoffClassStat['mode'] & 0022) !== 0)) {
+        throw new RuntimeException('handoff_class_permissions_invalid');
+    }
+    require_once $handoffClassPath;
     $config = require BROKER_CONFIG_PATH;
     if (!is_array($config) || !is_array($config['database'] ?? null)) {
         throw new RuntimeException('panel_config_invalid');
