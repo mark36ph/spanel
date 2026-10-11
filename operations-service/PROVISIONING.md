@@ -34,8 +34,9 @@ The installer targets a clean, disposable Ubuntu Server 24.04 LTS VM. It has not
 On the disposable VM after installation:
 
 ```bash
-sudo stat -c '%U:%G:%a %n' /usr/local/sbin/spanel-ops /etc/sudoers.d/spanel-ops
-sudo stat -c '%U:%G:%a %n' /etc/spanel/database-secrets.key /var/lib/spanel/secrets
+sudo stat -c '%U:%G:%a %n' /usr/local/sbin/spanel-ops /usr/local/sbin/spanel-pma-credential-broker /etc/sudoers.d/spanel-ops
+sudo stat -c '%U:%G:%a %n' /etc/spanel/database-secrets.key /var/lib/spanel/secrets /var/lib/spanel/phpmyadmin-sessions
+sudo stat -c '%U:%G:%a %n' /etc/phpmyadmin/conf.d/99-spanel.php /etc/php/$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')/fpm/pool.d/spanel-pma.conf
 sudo visudo -cf /etc/sudoers.d/spanel-ops
 sudo systemctl status spanel-worker.timer
 sudo journalctl -u spanel-worker.service -n 100 --no-pager
