@@ -68,6 +68,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer listener.Close()
+	semaphore := make(chan struct{}, 16)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -75,7 +76,15 @@ func main() {
 			time.Sleep(250 * time.Millisecond)
 			continue
 		}
-		go handle(conn)
+		select {
+		case semaphore <- struct{}{}:
+			go func() {
+				defer func() { <-semaphore }()
+				handle(conn)
+			}()
+		default:
+			_ = conn.Close()
+		}
 	}
 }
 
@@ -83,7 +92,8 @@ func handle(conn net.Conn) {
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 	reader := bufio.NewReaderSize(conn, maxFrameBytes+1)
-	frame, err := reader.ReadString('\n')
+	frameBytes, err := reader.ReadSlice('\n')
+	frame := string(frameBytes)
 	if err != nil || len(frame) == 0 || len(frame) > maxFrameBytes || strings.Count(frame, "\n") != 1 || strings.Contains(frame, "\r") {
 		writeJSON(conn, response{OK: false, Error: "invalid_frame"})
 		return
