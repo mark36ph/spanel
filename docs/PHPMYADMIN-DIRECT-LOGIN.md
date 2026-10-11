@@ -14,14 +14,16 @@ The installer now installs phpMyAdmin without enabling Apache, configures a dedi
 4. The broker atomically consumes the token, verifies the administrator remains active, checks that the database and website are active and belong to the local server, validates the non-secret metadata reference, and confirms the token's client address binding.
 5. The broker decrypts the AES-256-GCM credential in memory and writes the signon values to a short-lived PHP session file under `/var/lib/spanel/phpmyadmin-sessions`. The file is root-owned, group-readable/writable only by `spanel-pma`, and mode `0660`. The panel account cannot read the directory.
 6. The broker returns only the random signon session ID and database name. SPanel sets an HttpOnly, SameSite=Strict cookie scoped to `/phpmyadmin/` with a 60-second lifetime and redirects to phpMyAdmin with the selected database name.
-7. phpMyAdmin's supported signon mode reads the session and authenticates as the site's dedicated localhost-only database user. The database name in the URL is not a credential; neither the database password nor handoff token appears in the URL.
-8. The broker writes an audit event containing database metadata only. Broker errors are generic and do not log tokens or credentials. phpMyAdmin logout clears the signon cookie.
+7. Nginx runs an internal authorization subrequest for every phpMyAdmin PHP and static request. It verifies the SPanel session file, idle timeout and current admin-active state without rotating the session ID inside the subrequest. An unauthenticated or deactivated admin is redirected to SPanel login even if a phpMyAdmin cookie still exists.
+8. phpMyAdmin's supported signon mode reads the session and authenticates as the site's dedicated localhost-only database user. The database name in the URL is not a credential; neither the database password nor handoff token appears in the URL.
+9. The broker writes an audit event containing database metadata only. Broker errors are generic and do not log tokens or credentials. Both SPanel logout and phpMyAdmin logout clear the short-lived signon and internal phpMyAdmin cookies.
 
 ## Security boundaries
 
 - The panel account never reads the key or encrypted secret files and never receives the plaintext database password in the broker response.
 - The broker accepts no command-line arguments, has a strict bounded request contract, validates IDs and database ownership, and is installed root-owned with a narrow sudoers rule.
-- The phpMyAdmin PHP-FPM pool runs as `spanel-pma`, not `spanel`; it has no sudo rule. The signon session directory is root-owned and inaccessible to the panel account.
+- The phpMyAdmin PHP-FPM pool runs as `spanel-pma`, not `spanel`; it has no sudo rule. Its socket is not accessible to the `spanel` account. The signon session directory is root-owned and inaccessible to the panel account.
+- Nginx checks the active SPanel administrator session on every phpMyAdmin request, so SPanel logout, idle timeout and admin deactivation block subsequent phpMyAdmin requests.
 - The broker accepts only a short-lived, single-use token bound to the administrator, database and remote address. The token is consumed before credentials are made available to phpMyAdmin.
 - phpMyAdmin is configured for a fixed local server with arbitrary-server access disabled. Each database user has grants scoped to its own database and no `GRANT OPTION`.
 - On the private HTTP-only VM, the cookie's Secure flag is disabled because HTTPS is not configured. Do not expose this installation publicly. Production use must configure HTTPS and regenerate/review the phpMyAdmin cookie configuration.
