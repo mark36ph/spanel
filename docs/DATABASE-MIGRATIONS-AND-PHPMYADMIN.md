@@ -65,6 +65,22 @@ Validation:
 - Every website has a valid hosting server.
 - Existing domain-to-website mappings remain unchanged.
 
+### Website database provisioning plan (data-only)
+
+Implemented in `app/DatabaseProvisioningPlan.php`, with validation in
+`tests/database_provisioning_plan_validation.php`. The plan derives identifiers
+from numeric server/website IDs, restricts the database account to `localhost`,
+limits the grant target to that website's database, defines a small explicit
+privilege allowlist, and emits only a non-secret `secret_ref`. It never creates
+a password, executes SQL, or changes the server. The manual-only PHP workflow
+includes this validation test but has not been run.
+
+This is preparation only: the privileged helper continues to reject
+`create_database: true`. Do not enable database creation until protected secret
+storage and retrieval, password generation/rotation, exact MariaDB grants,
+partial-failure recovery, and cross-website isolation have been implemented and
+verified on the disposable Ubuntu VM.
+
 ### Migration B — Website database metadata and ownership
 
 - Keep database metadata associated with a website and hosting server.
