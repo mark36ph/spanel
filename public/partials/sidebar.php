@@ -2,6 +2,7 @@
 $items = [
     ['dashboard', '▦', 'Dashboard', '/dashboard.php'],
     ['sites', '◎', 'Websites', '/sites.php'],
+    ['servers', '▦', 'Servers', '/servers.php'],
     ['email', '✉', 'Email accounts', '#'],
     ['databases', '▤', 'Databases', '#'],
     ['cron', '◷', 'Cron jobs', '#'],
