@@ -32,7 +32,7 @@ After installation, `php bin/doctor.php` is a read-only preflight for PHP/extens
 - [Database migrations and phpMyAdmin](docs/DATABASE-MIGRATIONS-AND-PHPMYADMIN.md)
 - [Secure one-click phpMyAdmin login](docs/PHPMYADMIN-DIRECT-LOGIN.md)
 - [Roadmap](docs/ROADMAP.md)
-- [Local development setup](docs/DEVELOPMENT.md)
+- [Local development setup](docs/DEVELOPMENT.md)\n- [Ubuntu VM acceptance checklist](docs/VM-TEST-CHECKLIST.md)
 - [Installer and updates design](docs/INSTALLER-AND-UPDATES.md)
 
 The repository includes an initial Ubuntu VM installer draft, metadata-only server registration, website registration/domain management, a provisioning job queue and an operations status page. The installer itself has not yet been run on a VM. Website creation still does not configure isolated Linux users, per-site PHP-FPM pools, hosted-site databases or website Nginx configs; secure phpMyAdmin sign-on and the safe privileged operations helper remain outstanding. Keep the panel private and do not migrate production sites until VM installation, update, rollback and restore tests pass.
