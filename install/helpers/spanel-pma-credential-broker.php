@@ -144,8 +144,12 @@ function brokerCreateSignonSession(string $sessionId, string $username, string $
     $directory = BROKER_SIGNON_DIR;
     $directoryStat = brokerSecureDirectory($directory, 0007);
     $sessionGroup = (int)$directoryStat['gid'];
+    $expectedGroup = function_exists('posix_getgrnam') ? posix_getgrnam('spanel-pma') : false;
     brokerSecureDirectory(BROKER_SECRET_DIR, 0077);
-    if (($directoryStat['mode'] & 0020) === 0 || $sessionGroup < 1) {
+    if (!is_array($expectedGroup)
+        || $sessionGroup < 1
+        || $sessionGroup !== (int)$expectedGroup['gid']
+        || (($directoryStat['mode'] & 0020) === 0)) {
         throw new RuntimeException('signon_directory_not_writable_by_group');
     }
 
