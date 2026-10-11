@@ -35,7 +35,7 @@ On the disposable VM after installation:
 
 ```bash
 sudo stat -c '%U:%G:%a %n' /usr/local/sbin/spanel-ops /etc/sudoers.d/spanel-ops
-sudo stat -c '%U:%G:%a %a %n' /etc/spanel/database-secrets.key /var/lib/spanel/secrets
+sudo stat -c '%U:%G:%a %n' /etc/spanel/database-secrets.key /var/lib/spanel/secrets
 sudo visudo -cf /etc/sudoers.d/spanel-ops
 sudo systemctl status spanel-worker.timer
 sudo journalctl -u spanel-worker.service -n 100 --no-pager
