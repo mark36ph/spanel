@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh SPanel local health snapshots
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+Unit=spanel-health-check.service
+
+[Install]
+WantedBy=timers.target
