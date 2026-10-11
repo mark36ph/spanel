@@ -18,7 +18,7 @@ The published installation instructions must give the exact verified download UR
 
 The installer should:
 1. Check OS/version, root privileges, network access, free disk space and required commands before making changes.
-2. Install required packages (Nginx, PHP-FPM/extensions, MariaDB client/server, Git, Go toolchain for the typed provisioner, and supporting tools).
+2. Install required packages (Nginx, PHP-FPM/extensions, MariaDB client/server, phpMyAdmin without Apache, Git, Go toolchain for the typed provisioner, and supporting tools).
 3. Use root only for system-level setup, then create a dedicated non-root panel system account with a non-login shell. Refuse to adopt an existing, unverified account.
 4. Keep application code and local configuration root-owned and read-only to the panel account; configure a dedicated PHP-FPM pool that runs SPanel requests as that account, and keep the web document root pointed at `public/`.
 5. Configure MariaDB with a dedicated least-privilege application user. Never put real credentials in Git.
@@ -48,6 +48,8 @@ Update flow:
 ## Privilege boundary
 
 The current installer runs as root for system setup, creates the dedicated `spanel` system account with `/usr/sbin/nologin`, and configures a dedicated PHP-FPM pool using `user = spanel` and `group = www-data`. Web requests and panel CLI setup/doctor commands therefore run as non-root `spanel`. Application files remain `root:www-data`; the local configuration is `root:www-data` mode `0640`. The installer verifies the panel UID is nonzero, the shell is non-login, and the panel account cannot modify its worker code. It builds and installs the root-owned typed provisioner, validates the exact sudoers rule, creates a root-only encrypted database credential store, and enables a systemd timer that invokes one queue job per run as `spanel`. The account receives no unrestricted sudo rights.
+
+The current installer also creates a separate non-login `spanel-pma` account and PHP-FPM pool for phpMyAdmin. phpMyAdmin uses its documented signon authentication and a root-owned credential broker. The broker reads the root-only encrypted database secret, validates and consumes a short-lived handoff, and writes signon values to a root-owned session file accessible only to the `spanel-pma` group; it never returns a database password to the SPanel application. The browser receives only a short-lived HttpOnly signon-session cookie scoped to `/phpmyadmin/`. This implementation is not yet VM-acceptance-tested; do not expose it publicly before HTTPS and security checks pass.
 
 The PHP-FPM user must not be root and must not be able to run arbitrary commands. The web UI should call a narrow local updater service or root-owned helper with a fixed allowlist of operations. It must validate the requested approved release again on the privileged side. The helper must not accept arbitrary paths, shell fragments, repository URLs, or commands.
 
