@@ -8,7 +8,8 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [x] Document the command-line installer and safe GitHub update workflow.
 - [x] Define the security boundary: PHP-FPM is unprivileged; privileged operations use a narrow allowlist.
 - [ ] Review and finalise the database model before provisioning real sites.
-- [ ] Finalise the panel navigation and website creation flow.
+- [x] Document the website creation wizard and initial panel navigation.
+- [x] Define the DNS approach: manual instructions and checks first; optional provider APIs later; custom nameservers are not required.
 
 ## Stage 1 — Local development foundation
 - [x] PHP application skeleton, administrator login, CSRF/session protections, dashboard and website inventory.
@@ -31,20 +32,20 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Document install, repair, backup and uninstall/recovery procedures.
 
 ## Stage 3 — Core data model and server inventory
-- [ ] Add versioned migrations for servers, websites, multiple domains and website-owned resources.
+- [ ] Add versioned migrations for servers, websites, multiple domains and website-owned resources (design: `docs/ARCHITECTURE.md`).
 - [ ] Register the initial VM/VPS as a hosting server.
 - [ ] Track server health, maintenance state, capabilities and panel/agent version.
 - [ ] Build server overview and website inventory filters.
 - [ ] Support adding more servers later without changing the website model.
 
 ## Stage 4 — Safe website provisioning
-- [ ] Build a job queue/status model for long-running operations.
+- [ ] Build a job queue/status model for long-running operations, as specified in `docs/WEBSITE-CREATION-AND-DNS.md`.
 - [ ] Build a restricted local operations service; never expose arbitrary shell execution to PHP.
-- [ ] Validate domains, paths, PHP versions and generated resource names.
+- [ ] Validate domains, paths, PHP versions and generated resource names; include DNS preflight checks.
 - [ ] Create a dedicated Linux user and PHP-FPM pool per website.
 - [ ] Create an isolated document root and safe permissions.
 - [ ] Generate Nginx config from fixed templates, test it, enable it and roll back on failure.
-- [ ] Add website creation, status, suspend/enable and safe removal flows.
+- [ ] Add website creation wizard, status, suspend/enable and safe removal flows (design: `docs/WEBSITE-CREATION-AND-DNS.md`).
 - [ ] Require confirmation and a backup/retention decision before destructive actions.
 
 ## Stage 5 — Per-website management
