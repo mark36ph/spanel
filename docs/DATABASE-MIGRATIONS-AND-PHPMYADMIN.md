@@ -83,6 +83,15 @@ Implemented as `database/migrations/202610110002_create_operation_jobs.php`; run
 - Use an idempotency key where retries could otherwise duplicate an operation.
 - Never store arbitrary shell command strings.
 
+### Migration D — Database secret references and phpMyAdmin handoff
+
+Implemented as `database/migrations/202610110004_prepare_phpmyadmin_handoffs.php`; apply and recovery tests remain outstanding.
+
+- Add `website_databases.status` and a non-secret `secret_ref` field. The referenced secret must live outside the web root and panel metadata database.
+- Add `phpmyadmin_handoffs`, storing only a SHA-256 token hash, admin/database ownership, expiry, consumed timestamp and audit-relevant remote address.
+- The migration and token storage class do not enable phpMyAdmin login on their own. A reviewed authentication adapter, protected credential store and authorized launch endpoint are still required.
+- Never store raw handoff tokens or database passwords in the database.
+
 ### Later feature migrations
 
 Add tables when the corresponding feature is ready:
@@ -90,7 +99,7 @@ Add tables when the corresponding feature is ready:
 - SSL certificate metadata when certificate automation is implemented.
 - Backup metadata when backup jobs and retention are implemented.
 - Cron, deployment and resource-usage records with their features.
-- phpMyAdmin does not require its own table per website; SPanel should generate a restricted access path/session for the selected website database.
+- phpMyAdmin does not require its own table per website; the shared one-time handoff table is `phpmyadmin_handoffs`.
 
 ## phpMyAdmin plan
 
