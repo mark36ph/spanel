@@ -214,7 +214,7 @@ func atomicWrite(path, content string, mode os.FileMode) error {
 	if _,err=io.WriteString(f,content);err!=nil{f.Close();return err}
 	if err=f.Sync();err!=nil{f.Close();return err}
 	if err=f.Close();err!=nil{return err}
-	return os.Rename(tmp,path)
+	if err := os.Link(tmp, path); err != nil { return err }; _ = os.Remove(tmp); return nil
 }
 func run(timeout time.Duration, name string, args ...string) ([]byte,error) {
 	ctx,cancel:=context.WithTimeout(context.Background(),timeout); defer cancel()
