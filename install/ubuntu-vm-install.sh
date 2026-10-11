@@ -419,6 +419,9 @@ if sudo -u spanel-pma test -r /var/lib/spanel/panel-sessions; then
     fail "The phpMyAdmin account must not be able to read SPanel sessions."
 fi
 sudo -u spanel-pma test -r /etc/phpmyadmin/conf.d/99-spanel.php || fail "The isolated phpMyAdmin account cannot read its configuration."
+if sudo -u spanel-pma test -r "$APP_DIR/config/config.local.php"; then
+    fail "The phpMyAdmin account must not be able to read SPanel database credentials."
+fi
 sudo -u spanel-pma test -r /var/lib/spanel/phpmyadmin-sessions || fail "The isolated phpMyAdmin account cannot access its session store."
 if sudo -u "$APP_USER" test -w /run/php/spanel-pma.sock; then
     fail "The SPanel account must not be able to connect directly to the phpMyAdmin PHP-FPM pool."
