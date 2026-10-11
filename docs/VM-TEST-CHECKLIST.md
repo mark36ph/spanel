@@ -90,4 +90,4 @@ sudo journalctl -u mariadb -n 100 --no-pager
 
 ## Not yet acceptance-tested
 
-Real per-site Linux users/PHP-FPM pools, website Nginx configuration, hosted-site database creation, secure phpMyAdmin direct login, SSL, backups/restores and safe panel updates/rollback are not implemented end to end. Keep SPanel private and do not migrate Projectabe or FactBurstQuiz until those features and their isolation/recovery tests pass.
+The initial helper now contains per-site Linux user/document-root/PHP-FPM/Nginx provisioning, but this is not yet VM-acceptance-tested. Hosted-site database creation, secure phpMyAdmin direct login, SSL, backups/restores and safe panel updates/rollback are not implemented end to end. Keep SPanel private and do not migrate Projectabe or FactBurstQuiz until those features and their isolation/recovery tests pass.
