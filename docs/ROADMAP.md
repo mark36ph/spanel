@@ -14,7 +14,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 ## Stage 1 — Local development foundation
 - [x] PHP application skeleton, administrator login, CSRF/session protections, dashboard and website inventory.
 - [x] Initial MariaDB schema and audit-event table.
-- [x] Ubuntu VM setup notes.
+- [x] Ubuntu VM setup notes and a step-by-step [VM acceptance checklist](VM-TEST-CHECKLIST.md).
 - [ ] Install VirtualBox and Ubuntu Server on the Windows PC.
 - [ ] Run the panel in the VM and verify PHP syntax, login, sessions, database connection and error handling.
 - [x] Hide CLI administrator password input on an interactive Unix terminal; verify in the Ubuntu VM later.
