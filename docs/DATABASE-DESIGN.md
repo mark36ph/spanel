@@ -49,7 +49,7 @@ A separate table so one website can have a primary domain, aliases and subdomain
 Metadata for databases owned by a website; the actual MariaDB databases are provisioned separately.
 - `id`; `website_id` foreign key; `database_name`; `database_user`; `engine`; `status`; timestamps.
 - Database names and usernames unique within the hosting server, not necessarily globally across multiple servers. Use unique keys on (`server_id`, `database_name`) and (`server_id`, `database_user`) or derive the server through the website in application logic; avoid pretending names are globally unique in a multi-server design.
-- Passwords are never stored in plaintext or logs. Prefer generated credentials shown once and rotated on request; if later persistence is required, store a secret reference, not the secret itself.
+- Passwords are never stored in plaintext or logs. Prefer generated credentials shown once and rotated on request; if later persistence is required, store a secret reference, not the secret itself. Database/user names are unique within the hosting server; provision users with grants limited to their own website database(s). See `docs/DATABASE-MIGRATIONS-AND-PHPMYADMIN.md`.
 - Record server ownership explicitly or use a constraint-safe design that guarantees a database belongs to the same server as its website.
 
 ### `schema_migrations`
@@ -86,6 +86,10 @@ Tracks provisioning and other work that may take longer than an HTTP request.
 ### `website_deployments` (implement with Git deployment)
 - `id`; `website_id`; source/revision metadata; status; start/end timestamps; redacted logs/reference; rollback reference.
 - Do not store Git tokens in deployment rows or logs.
+
+## phpMyAdmin access
+
+Install one maintained phpMyAdmin instance per hosting server, not a copy per website. SPanel should offer a secure **Open phpMyAdmin** action for the selected website database, while keeping database credentials out of URLs and browser storage. Default access should require SPanel authentication plus HTTPS and practical network/IP restrictions; use a supported, reviewed authentication handoff. The website database user must not be able to access other websites' databases. Explicitly authorized administrator access is separate and audited. phpMyAdmin is optional management UI: database provisioning must still work when it is unavailable. See `docs/DATABASE-MIGRATIONS-AND-PHPMYADMIN.md`.
 
 ## DNS model
 
