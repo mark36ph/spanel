@@ -105,6 +105,7 @@ done
 info "Preparing protected website database credential storage"
 install -d -o root -g root -m 0750 /etc/spanel
 install -d -o root -g root -m 0711 /var/lib/spanel
+install -d -o "$APP_USER" -g "$APP_USER" -m 0700 /var/lib/spanel/panel-sessions
 install -d -o root -g root -m 0700 /var/lib/spanel/secrets
 install -d -o root -g spanel-pma -m 0770 /var/lib/spanel/phpmyadmin-sessions
 (umask 077; openssl rand -hex 32 > /etc/spanel/database-secrets.key)
@@ -210,6 +211,7 @@ pm.process_idle_timeout = 10s
 pm.max_requests = 500
 clear_env = yes
 security.limit_extensions = .php
+php_admin_value[session.save_path] = /var/lib/spanel/panel-sessions
 POOL
 chown root:root "$PHP_FPM_POOL"
 chmod 0644 "$PHP_FPM_POOL"
