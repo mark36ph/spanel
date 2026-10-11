@@ -9,6 +9,8 @@ Use this checklist only on a **disposable private Ubuntu Server 24.04 LTS VM**, 
 - [ ] Confirm root is used for system setup, then the installer creates a dedicated `spanel` account with a non-login shell and nonzero UID.
 - [ ] Confirm the installer refuses to adopt an already-existing `spanel` account and stops rather than trusting its identity.
 - [ ] Confirm application files are owned by root, the panel account cannot modify `bin/worker.php`, and `config/config.local.php` is `root:www-data` mode `0640`.
+- [ ] Confirm `/etc/php/<version>/fpm/pool.d/spanel.conf` configures `user = spanel`, `group = www-data`, and `/run/php/spanel.sock`; Nginx uses that socket.
+- [ ] Confirm PHP-FPM workers for the `spanel` pool run as the non-root `spanel` user; the normal PHP-FPM master process may remain root as required by systemd.
 - [ ] Confirm the installer creates the panel DB/configuration, applies migrations, registers the local server, configures Nginx/PHP-FPM, and prompts for the administrator.
 - [ ] Confirm the installer finishes its HTTP smoke test and read-only doctor check without errors.
 - [ ] Confirm the installer rejects an unreplaced `CHANGE_ME` DB password or incorrect generated base URL.
