@@ -90,7 +90,7 @@ final class PhpMyAdminHandoff
 
     /**
      * Atomically consume a token for its original administrator.
-     * Returns only IDs needed for a subsequent authorization check.
+     * Returns IDs and the recorded client address for the broker's authorization check.
      */
     public static function consume(PDO $pdo, string $token, int $adminId): ?array
     {
