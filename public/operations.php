@@ -49,7 +49,7 @@ renderHeader('Operations', 'operations');
 <tr>
 <td><strong>#<?= (int)$job['id'] ?> · <?= Security::escape($job['operation_type']) ?></strong></td>
 <td><?= Security::escape($job['website_name'] ?? '—') ?><small><?= Security::escape($job['website_domain'] ?? '') ?></small><small><?= Security::escape($job['server_name'] ?? 'No server') ?></small></td>
-<td><span class="status-badge"><?= Security::escape(str_replace('_', ' ', $job['status'])) ?></span></td>
+<td><span class="status-badge status-<?= Security::escape($job['status']) ?>"><?= Security::escape(str_replace('_', ' ', $job['status'])) ?></span></td>
 <td><?= (int)$job['attempt_count'] ?></td>
 <td><small>Created: <?= Security::escape($job['created_at'] ?? '—') ?></small><small>Started: <?= Security::escape($job['started_at'] ?? '—') ?></small><small>Finished: <?= Security::escape($job['finished_at'] ?? '—') ?></small></td>
 <td><?php if ($job['error_code']): ?><strong><?= Security::escape($job['error_code']) ?></strong><small><?= Security::escape($job['error_summary'] ?? '') ?></small><?php elseif ($job['result_json']): ?><small><?= Security::escape(mb_substr((string)$job['result_json'], 0, 500)) ?></small><?php else: ?><span class="muted">No result recorded</span><?php endif; ?></td>
