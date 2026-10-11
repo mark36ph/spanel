@@ -19,6 +19,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Run the panel in the VM and verify PHP syntax, login, sessions, database connection and error handling.
 - [ ] Fix CLI administrator creation so password input is hidden.
 - [ ] Add basic automated checks and a documented test checklist.
+- [ ] Implement the CLI-only, checksum-aware migration runner and test fresh installs, legacy upgrades, failure recovery and restore.
 
 ## Stage 2 — Repeatable CLI installation
 - [ ] Build a reviewed installer script for a clean Ubuntu VM or VPS.
@@ -51,7 +52,8 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 ## Stage 5 — Per-website management
 - [ ] Give each website its own overview and contextual sidebar.
 - [ ] Manage primary domains, aliases and subdomains.
-- [ ] Manage website databases and least-privilege database users.
+- [ ] Create/manage website databases and least-privilege database users during and after website creation.
+- [ ] Install one phpMyAdmin instance per hosting server and add secure SPanel access to the selected website database; test cross-website isolation.
 - [ ] Add cron jobs with validation and audit logs.
 - [ ] Add file manager with strict path containment and permission checks.
 - [ ] Add logs, disk usage and resource summaries.
