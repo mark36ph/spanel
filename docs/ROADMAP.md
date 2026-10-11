@@ -34,9 +34,9 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 
 ## Stage 3 — Core data model and server inventory
 - [x] Add the first forward migration for `website_domains`, preserving `websites.domain` for compatibility and refusing invalid/normalized-colliding domains or websites without server assignments. [ ] Run and test the migration against fresh and representative legacy databases in the Ubuntu VM.
-- [ ] Register the initial VM/VPS as a hosting server.
+- [x] Add server inventory UI and metadata-only server registration. [ ] Have the installer register the local VM/VPS and verify it in the Ubuntu VM.
 - [ ] Track server health, maintenance state, capabilities and panel/agent version.
-- [ ] Build server overview and website inventory filters.
+- [x] Add server inventory, website inventory links and per-website management overview. [ ] Add health checks and inventory filters.
 - [ ] Support adding more servers later without changing the website model.
 
 ## Stage 4 — Safe website provisioning
@@ -46,7 +46,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Create a dedicated Linux user and PHP-FPM pool per website.
 - [ ] Create an isolated document root and safe permissions.
 - [ ] Generate Nginx config from fixed templates, test it, enable it and roll back on failure.
-- [ ] Add website creation wizard, status, suspend/enable and safe removal flows (design: `docs/WEBSITE-CREATION-AND-DNS.md`).
+- [x] Add a metadata-only website registration wizard that creates a pending record and provisioning job. [ ] Implement safe provisioning, status transitions, suspend/enable and removal flows (design: `docs/WEBSITE-CREATION-AND-DNS.md`).
 - [ ] Require confirmation and a backup/retention decision before destructive actions.
 
 ## Stage 5 — Per-website management
