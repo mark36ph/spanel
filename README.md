@@ -13,9 +13,12 @@ A custom hosting control panel for Projectabe, FactBurstQuiz, and future sites. 
 
 ## Install on a disposable Ubuntu VM
 
-The first-install bootstrap targets **Ubuntu Server 24.04 LTS**. From the repository root on a clean VM, run:
+The first-install bootstrap targets **Ubuntu Server 24.04 LTS**. From a clean VM, clone the repository, review the installer, then run it from the repository root:
 
 ```bash
+git clone https://github.com/mark36ph/spanel.git
+cd spanel
+less install/ubuntu-vm-install.sh
 sudo bash install/ubuntu-vm-install.sh
 ```
 
