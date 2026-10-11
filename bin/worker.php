@@ -128,6 +128,7 @@ try {
     }
     $pdo->commit();
 
+    $provisioningMayHaveChangedSystem = false;
     try {
         if ($job['operation_type'] !== 'website.provision') {
             throw new RuntimeException('Operation type is not supported by this worker.');
@@ -152,6 +153,8 @@ try {
         if (DomainName::normalize($domain) !== $domain) {
             throw new RuntimeException('Website domain failed provisioning validation.');
         }
+        // A failed or mismatched helper response can follow partial system changes.
+        $provisioningMayHaveChangedSystem = is_file(OPS_HELPER) && is_executable(OPS_HELPER);
         $response = invokeOperationsHelper([
             'operation' => 'website.provision',
             'website_id' => $websiteId,
@@ -195,6 +198,9 @@ try {
             "UPDATE website_domains SET status = 'active' WHERE website_id = :website_id AND is_primary = 1"
         );
         $domainUpdate->execute(['website_id' => $websiteId]);
+        if ($domainUpdate->rowCount() !== 1) {
+            throw new RuntimeException('Primary domain metadata did not match the completed provisioning operation.');
+        }
 
         if ($response['database_created'] === true) {
             // Resource names are derived from the numeric website ID, never from
@@ -246,8 +252,13 @@ try {
         }
         // Error summaries are intentionally short; no raw subprocess output or secrets.
         $summary = mb_substr($e->getMessage(), 0, 300);
-        finishJob($pdo, $jobId, 'failed', 'provisioning_failed', $summary);
-        fwrite(STDERR, "Operation job #{$jobId} failed: {$summary}\n");
+        $failureStatus = $provisioningMayHaveChangedSystem ? 'rollback_required' : 'failed';
+        $failureCode = $provisioningMayHaveChangedSystem ? 'provisioning_state_uncertain' : 'provisioning_failed';
+        if ($provisioningMayHaveChangedSystem) {
+            $summary = 'The helper may have changed system resources, but the panel could not verify/commit the result. Inspect the server before retrying. Details: ' . $summary;
+        }
+        finishJob($pdo, $jobId, $failureStatus, $failureCode, $summary);
+        fwrite(STDERR, "Operation job #{$jobId} {$failureStatus}: {$summary}\n");
         exit(1);
     }
 } catch (Throwable $e) {
