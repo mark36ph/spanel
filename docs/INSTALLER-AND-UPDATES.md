@@ -20,14 +20,14 @@ The installer should:
 1. Check OS/version, root privileges, network access, free disk space and required commands before making changes.
 2. Install only required packages (Nginx, PHP-FPM/extensions, MariaDB client/server as appropriate, Git and supporting tools).
 3. Use root only for system-level setup, then create a dedicated non-root panel system account with a non-login shell. Refuse to adopt an existing, unverified account.
-4. Keep application code and local configuration root-owned and read-only to the panel account; keep the web document root pointed at `public/`.
-4. Configure MariaDB with a dedicated least-privilege application user. Never put real credentials in Git.
-5. Create a local configuration file from the example, generate strong secrets locally, and set safe permissions. Do not overwrite existing config during reinstall/update.
-6. Apply versioned database migrations and record the installed version.
-7. Create the first administrator using hidden password input (or another secure prompt); never put passwords in shell arguments or logs.
-8. Configure and validate Nginx/PHP-FPM, then reload only after configuration tests pass.
-9. Run a health check and print the local panel URL plus the next steps. The development VM must remain private; do not open firewall/router ports automatically.
-10. Be safe to re-run: detect an existing installation, preserve configuration/database/backups, and require an explicit recovery path before destructive actions.
+4. Keep application code and local configuration root-owned and read-only to the panel account; configure a dedicated PHP-FPM pool that runs SPanel requests as that account, and keep the web document root pointed at `public/`.
+5. Configure MariaDB with a dedicated least-privilege application user. Never put real credentials in Git.
+6. Create a local configuration file from the example, generate strong secrets locally, and set safe permissions. Do not overwrite existing config during reinstall/update.
+7. Apply versioned database migrations and record the installed version.
+8. Create the first administrator using hidden password input (or another secure prompt); never put passwords in shell arguments or logs.
+9. Configure and validate Nginx/PHP-FPM, then reload only after configuration tests pass.
+10. Run a health check and print the local panel URL plus the next steps. The development VM must remain private; do not open firewall/router ports automatically.
+11. Be safe to re-run: detect an existing installation, preserve configuration/database/backups, and require an explicit recovery path before destructive actions.
 
 A dry-run/preflight mode and clear logs should be added before production use. Installer errors must stop safely and explain recovery steps.
 
@@ -47,7 +47,7 @@ Update flow:
 
 ## Privilege boundary
 
-The current installer runs as root for system setup, creates the dedicated `spanel` system account with `/usr/sbin/nologin`, and runs panel CLI setup/doctor commands as that account. Application files remain `root:www-data`; the local configuration is `root:www-data` mode `0640`. The installer verifies the panel UID is nonzero, the shell is non-login, and the panel account cannot modify its worker code. The account receives no unrestricted sudo rights; the separate provisioning helper and exact sudoers rule are installed manually only during the disposable-VM test.
+The current installer runs as root for system setup, creates the dedicated `spanel` system account with `/usr/sbin/nologin`, and configures a dedicated PHP-FPM pool using `user = spanel` and `group = www-data`. Web requests and panel CLI setup/doctor commands therefore run as non-root `spanel`. Application files remain `root:www-data`; the local configuration is `root:www-data` mode `0640`. The installer verifies the panel UID is nonzero, the shell is non-login, and the panel account cannot modify its worker code. The account receives no unrestricted sudo rights; the separate provisioning helper and exact sudoers rule are installed manually only during the disposable-VM test.
 
 The PHP-FPM user must not be root and must not be able to run arbitrary commands. The web UI should call a narrow local updater service or root-owned helper with a fixed allowlist of operations. It must validate the requested approved release again on the privileged side. The helper must not accept arbitrary paths, shell fragments, repository URLs, or commands.
 
