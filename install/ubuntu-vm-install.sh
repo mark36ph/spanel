@@ -41,6 +41,8 @@ PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
 PHP_VERSION_ID="$(php -r 'echo PHP_VERSION_ID;')"
 [[ "$PHP_VERSION_ID" -ge 80200 ]] || fail "PHP 8.2 or newer is required; detected $(php -v | head -n 1)."
 [[ -S "/run/php/php${PHP_VERSION}-fpm.sock" || -e "/lib/systemd/system/php${PHP_VERSION}-fpm.service" ]] || fail "Could not locate the PHP-FPM service/socket for PHP $PHP_VERSION."
+readonly PHP_FPM_POOL="/etc/php/${PHP_VERSION}/fpm/pool.d/spanel.conf"
+[[ ! -e "$PHP_FPM_POOL" ]] || fail "A SPanel PHP-FPM pool already exists at $PHP_FPM_POOL; inspect it before proceeding."
 
 info "Creating the dedicated, non-root panel account and application directory"
 if getent passwd "$APP_USER" >/dev/null; then
@@ -117,6 +119,31 @@ ON DUPLICATE KEY UPDATE
   updated_at = CURRENT_TIMESTAMP;
 SQL
 
+info "Configuring a dedicated PHP-FPM pool for the non-root SPanel account"
+cat > "$PHP_FPM_POOL" <<POOL
+[spanel]
+user = spanel
+group = www-data
+listen = /run/php/spanel.sock
+listen.owner = www-data
+listen.group = www-data
+listen.mode = 0660
+pm = ondemand
+pm.max_children = 5
+pm.process_idle_timeout = 10s
+pm.max_requests = 500
+clear_env = yes
+security.limit_extensions = .php
+POOL
+chown root:root "$PHP_FPM_POOL"
+chmod 0644 "$PHP_FPM_POOL"
+if ! "/usr/sbin/php-fpm${PHP_VERSION}" -t; then
+    rm -f "$PHP_FPM_POOL"
+    fail "PHP-FPM configuration validation failed; the new SPanel pool was removed."
+fi
+systemctl enable --now "php${PHP_VERSION}-fpm"
+systemctl reload "php${PHP_VERSION}-fpm"
+
 info "Configuring Nginx to serve only SPanel's public directory"
 cat > "$NGINX_SITE" <<NGINX
 server {
@@ -138,7 +165,7 @@ server {
     location ~ \.php$ {
         try_files \$uri =404;
         include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/run/php/php${PHP_VERSION}-fpm.sock;
+        fastcgi_pass unix:/run/php/spanel.sock;
     }
 
     location ~ /\. {
@@ -151,7 +178,6 @@ if ! nginx -t; then
     rm -f "$NGINX_LINK" "$NGINX_SITE"
     fail "Nginx configuration validation failed; the SPanel site config was removed."
 fi
-systemctl enable --now "php${PHP_VERSION}-fpm"
 systemctl enable --now nginx
 systemctl reload nginx
 
