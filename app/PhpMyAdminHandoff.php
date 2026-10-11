@@ -58,6 +58,37 @@ final class PhpMyAdminHandoff
     }
 
     /**
+     * Revoke any outstanding handoffs for a database after credential rotation
+     * or an ownership/security change. The raw tokens are never needed.
+     */
+    public static function revokeForDatabase(PDO $pdo, int $databaseId): int
+    {
+        if ($databaseId < 1) {
+            throw new InvalidArgumentException('Database ID must be positive.');
+        }
+        $stmt = $pdo->prepare(
+            'UPDATE phpmyadmin_handoffs SET consumed_at = NOW()
+             WHERE website_database_id = :database_id AND consumed_at IS NULL'
+        );
+        $stmt->execute(['database_id' => $databaseId]);
+        return $stmt->rowCount();
+    }
+
+    /** Revoke all outstanding handoffs when an administrator is disabled. */
+    public static function revokeForAdmin(PDO $pdo, int $adminId): int
+    {
+        if ($adminId < 1) {
+            throw new InvalidArgumentException('Administrator ID must be positive.');
+        }
+        $stmt = $pdo->prepare(
+            'UPDATE phpmyadmin_handoffs SET consumed_at = NOW()
+             WHERE admin_id = :admin_id AND consumed_at IS NULL'
+        );
+        $stmt->execute(['admin_id' => $adminId]);
+        return $stmt->rowCount();
+    }
+
+    /**
      * Atomically consume a token for its original administrator.
      * Returns only IDs needed for a subsequent authorization check.
      */
