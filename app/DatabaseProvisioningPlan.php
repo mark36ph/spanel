@@ -46,7 +46,7 @@ final class DatabaseProvisioningPlan
             'database_host' => 'localhost',
             'grant_scope' => $databaseName . '.*',
             'privileges' => self::PRIVILEGES,
-            'secret_ref' => 'website-db:' . $serverId . ':' . $websiteId,
+            'secret_ref' => 'website-db:' . $websiteId,
             'password_included' => false,
             'execution_enabled' => false,
         ];
