@@ -83,6 +83,17 @@ sed \
   "$APP_DIR/config/config.example.php" > "$APP_DIR/config/config.local.php"
 chown root:www-data "$APP_DIR/config/config.local.php"
 chmod 0640 "$APP_DIR/config/config.local.php"
+
+# Fail immediately if the template changes and a generated setting was not replaced.
+if ! grep -Fq "'base_url' => 'http://127.0.0.1:8081'" "$APP_DIR/config/config.local.php"; then
+    fail "Could not set the expected panel base URL in config/config.local.php."
+fi
+if grep -Fq "'password' => 'CHANGE_ME'" "$APP_DIR/config/config.local.php"; then
+    fail "The generated local configuration still contains the placeholder database password."
+fi
+if [[ "$(stat -c '%a' "$APP_DIR/config/config.local.php")" != "640" ]]; then
+    fail "The local configuration permissions are not restricted to mode 0640."
+fi
 unset DB_PASSWORD
 
 mariadb "$DB_NAME" < "$APP_DIR/database/schema.sql"
@@ -149,6 +160,16 @@ if ! curl --fail --silent --show-error http://127.0.0.1/login.php -o /dev/null; 
     fail "SPanel did not return HTTP success from /login.php. Inspect nginx and PHP-FPM logs before retrying."
 fi
 printf 'HTTP login page returned successfully.\n'
+
+# The document root must never expose application configuration or source data.
+for protected_path in /config/config.local.php /config/config.example.php /database/schema.sql /bin/doctor.php; do
+    http_code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "http://127.0.0.1${protected_path}")" \
+        || fail "Could not check protected path ${protected_path}."
+    if [[ "$http_code" == "200" ]]; then
+        fail "Protected path ${protected_path} is publicly accessible (HTTP 200)."
+    fi
+    printf 'Protected path %s is not publicly served (HTTP %s).\n' "$protected_path" "$http_code"
+done
 
 info "Running the read-only preflight"
 sudo -u "$APP_USER" php "$APP_DIR/bin/doctor.php"
