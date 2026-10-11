@@ -65,3 +65,11 @@ CREATE TABLE IF NOT EXISTS audit_events (
     KEY idx_audit_events_created_at (created_at),
     CONSTRAINT fk_audit_events_admin FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Applied schema changes are tracked here by the installer/updater migration runner.
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    migration_id VARCHAR(190) NOT NULL,
+    checksum CHAR(64) NOT NULL,
+    applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (migration_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
