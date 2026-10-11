@@ -178,6 +178,7 @@ function brokerCreateSignonSession(string $sessionId, string $username, string $
     ];
     session_write_close();
 
+    $published = false;
     try {
         $stat = brokerLstat($privateFile);
         if (($stat['mode'] & 0170000) !== 0100000
@@ -196,11 +197,14 @@ function brokerCreateSignonSession(string $sessionId, string $username, string $
         if (file_exists($publicFile) || is_link($publicFile) || !@link($privateFile, $publicFile)) {
             throw new RuntimeException('signon_session_publish_failed');
         }
+        $published = true;
         @unlink($privateFile);
         return $publicFile;
     } catch (Throwable $e) {
         @unlink($privateFile);
-        @unlink($publicFile);
+        if ($published) {
+            @unlink($publicFile);
+        }
         throw $e;
     }
 }
@@ -219,8 +223,13 @@ try {
         throw new RuntimeException('invalid_input');
     }
     $request = brokerValidateRequest($raw);
-    if (!is_file(BROKER_CONFIG_PATH) || is_link(BROKER_CONFIG_PATH)) {
-        throw new RuntimeException('panel_config_unavailable');
+    brokerSecureDirectory('/opt/spanel', 0022);
+    brokerSecureDirectory('/opt/spanel/config', 0022);
+    $configStat = brokerLstat(BROKER_CONFIG_PATH);
+    if (($configStat['mode'] & 0170000) !== 0100000
+        || (int)$configStat['uid'] !== 0
+        || (($configStat['mode'] & 0022) !== 0)) {
+        throw new RuntimeException('panel_config_permissions_invalid');
     }
 
     require_once '/opt/spanel/app/PhpMyAdminHandoff.php';
