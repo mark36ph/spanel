@@ -68,7 +68,8 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [x] Implement optional website database/user creation with explicit database-scoped privileges, random credentials encrypted in a root-only secret store, and metadata-only secret references. [ ] VM-test grants, encryption, rollback and cross-website isolation. Password rotation and controlled credential delivery remain planned.
 - [x] Add strict reusable DNS-domain normalization and CI tests; runtime verification remains outstanding.
 - [x] Add additive metadata and one-time phpMyAdmin handoff-token storage with hash-only token persistence.
-- [x] Add the root-owned credential broker, strict ownership checks, encrypted-secret decryption, audit event, isolated `spanel-pma` PHP-FPM pool, protected signon session directory and short-lived session cookie.
+- [x] Add the root-owned credential broker, strict ownership checks, encrypted-secret decryption, audit event, isolated `spanel-pma` PHP-FPM pool/socket and session directory, plus a short-lived signon cookie.
+- [x] Require an active SPanel administrator session on every phpMyAdmin request through an internal Nginx authorization subrequest; clear stale PMA cookies on SPanel login/logout and invalidate sessions for disabled admins.
 - [x] Add phpMyAdmin package/configuration and Nginx routing to the first-install script; configure documented signon authentication and a per-database **Open phpMyAdmin** POST action.
 - [ ] VM-test phpMyAdmin signon, cookie scope/expiry, logout, token replay/expiry, disabled-admin handling, broker permissions and cross-website isolation. Direct signon must fail closed on any authorization or secret-store error.
 - [ ] Add cron jobs with validation and audit logs.
