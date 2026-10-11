@@ -7,14 +7,25 @@ final class Auth
 {
     public static function user(): ?array
     {
-        if (!isset($_SESSION['admin_id']) || !is_int($_SESSION['admin_id'])) {
+        if (!isset($_SESSION['admin_id'])) {
+            return null;
+        }
+        if (!is_int($_SESSION['admin_id']) || $_SESSION['admin_id'] < 1) {
+            $_SESSION = [];
             return null;
         }
         $stmt = Database::connection()->prepare(
             'SELECT id, email, created_at, last_login_at FROM admins WHERE id = :id AND is_active = 1 LIMIT 1'
         );
         $stmt->execute(['id' => $_SESSION['admin_id']]);
-        return $stmt->fetch() ?: null;
+        $user = $stmt->fetch();
+        if (!$user) {
+            // Do not allow an old session to become valid again if an admin is
+            // later reactivated. This also removes any pending database handoff.
+            $_SESSION = [];
+            return null;
+        }
+        return $user;
     }
 
     public static function requireLogin(): array
