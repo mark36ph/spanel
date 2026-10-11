@@ -33,10 +33,12 @@ $root = dirname(__DIR__);
 $requiredFiles = [
     'config/config.local.php',
     'config/config.example.php',
+    'app/LoginRateLimiter.php',
     'database/schema.sql',
     'bin/migrate.php',
     'bin/create-admin.php',
     'bin/health-check.php',
+    'public/health.php',
     'public/index.php',
 ];
 doctorCheck('PHP version', PHP_VERSION_ID >= 80200, PHP_VERSION, 'PHP 8.2 or newer is required.');
