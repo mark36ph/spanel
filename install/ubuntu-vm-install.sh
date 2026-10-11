@@ -175,6 +175,16 @@ for protected_path in /config/config.local.php /config/config.example.php /datab
     printf 'Protected path %s is not publicly served (HTTP %s).\n' "$protected_path" "$http_code"
 done
 
+info "Verifying privilege separation and application permissions"
+[[ "$(id -u "$APP_USER")" -gt 0 ]] || fail "The panel account must never be root."
+[[ "$(getent passwd "$APP_USER" | cut -d: -f7)" == "/usr/sbin/nologin" ]] || fail "The panel account must not have an interactive login shell."
+[[ "$(stat -c '%U:%G:%a' "$APP_DIR")" == "root:www-data:750" ]] || fail "The application directory ownership or permissions are unexpected."
+[[ "$(stat -c '%U:%G:%a' "$APP_DIR/config/config.local.php")" == "root:www-data:640" ]] || fail "The private configuration ownership or permissions are unexpected."
+if sudo -u "$APP_USER" test -w "$APP_DIR/bin/worker.php"; then
+    fail "The panel account must not be able to modify its worker code."
+fi
+printf 'SPanel runs under non-root account %s (UID %s); application code remains root-owned.\n' "$APP_USER" "$(id -u "$APP_USER")"
+
 info "Running the read-only preflight"
 sudo -u "$APP_USER" php "$APP_DIR/bin/doctor.php"
 
@@ -189,6 +199,8 @@ Next:
   4. Review Servers, Websites and Operations.
 
 This is a private development install. Do not expose it to the public internet.
-The website provisioning helper, hosted-site database creation and secure phpMyAdmin
-sign-on are not enabled by this installer and must be completed/tested separately.
+The installer runs as root for system setup; panel commands run as the dedicated
+non-root 'spanel' account. Application code stays root-owned and read-only to that
+account. Hosted-site database creation and secure phpMyAdmin sign-on are not enabled
+by this installer and must be completed/tested separately.
 DONE
