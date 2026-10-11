@@ -1,51 +1,32 @@
 # Direct phpMyAdmin database access
 
-## User experience
+## Current implementation
 
-Every database listed under a website's SPanel **Databases** page should have an **Open phpMyAdmin** link beside its name. After SPanel has created the database and its dedicated database user, clicking the link should open phpMyAdmin already authenticated as that user, with the correct database selected. The user should not need to type the database username or password again.
+The website management page now renders **Open phpMyAdmin** for eligible active databases on the local server. The form uses POST and CSRF protection. The administrator's raw handoff token stays in the server-side SPanel session and is never put in a browser URL, HTML, JavaScript or log.
 
-The link is available only to an authenticated SPanel administrator authorized to manage that website. It is not a public URL and must not contain credentials.
+The installer now installs phpMyAdmin without enabling Apache, configures a dedicated non-root `spanel-pma` PHP-FPM pool and Nginx route, and enables phpMyAdmin's documented `signon` authentication mode. The SPanel application and phpMyAdmin use separate PHP-FPM identities. The root-owned broker is the only component that can read the encrypted database secret store and key.
 
-## Required flow
+## Handoff flow
 
-1. During database creation, SPanel generates a strong random database password and provisions the database/user with least-privilege grants.
-2. **Implemented in the current provisioner:** the password is generated inside the root-owned helper and stored as authenticated AES-GCM ciphertext outside the web root in `/var/lib/spanel/secrets`. The decryption key is in `/etc/spanel/database-secrets.key`; both are root-owned and inaccessible to the panel account. The credential broker that permits phpMyAdmin to retrieve a credential for an authorized one-time handoff is not implemented yet.
-3. The database metadata row stores only the database name, username, owning website/server, status and a non-secret secret reference.
-4. When the administrator clicks **Open phpMyAdmin**, SPanel re-checks the administrator session, CSRF/intent as appropriate, website/database ownership and server status.
-5. SPanel creates a cryptographically random, short-lived, single-use handoff token. Store only its hash with the intended database/user, requesting admin, expiry and consumed state.
-6. Keep the raw handoff token only in the server-side authenticated session for the short launch flow, then redirect the browser to a same-origin SPanel launch endpoint. The endpoint removes the token from the session and consumes it once, then performs a server-side handoff using phpMyAdmin's supported authentication integration (prefer a reviewed signon integration or equivalent documented mechanism). Never put the raw token in HTML, JavaScript, query strings, referrer data, browser storage or logs. If server-side session storage is unavailable, fail closed rather than passing the token through the browser.
-7. phpMyAdmin authenticates as the website's database user and opens the intended database. The user sees normal phpMyAdmin UI and can browse tables, run SQL and import/export within configured limits.
-8. The handoff token is invalidated on use or expiry. Audit the access event without logging credentials or tokens.
+1. The authenticated administrator submits **Open phpMyAdmin** from a website's Databases table. SPanel validates CSRF, website/database ownership, active status, local server assignment and the expected database/user identifiers.
+2. SPanel generates a random 256-bit handoff token, stores only its SHA-256 hash in `phpmyadmin_handoffs`, and keeps the raw token in the server-side SPanel session for at most 60 seconds.
+3. The browser is redirected to a same-origin launch endpoint. It revalidates the SPanel login, consumes the pending session entry and sends a bounded JSON request to the fixed root-owned broker through an exact sudoers rule. The token is not included in the redirect URL.
+4. The broker atomically consumes the token, verifies the administrator remains active, checks that the database and website are active and belong to the local server, validates the non-secret metadata reference, and confirms the token's client address binding.
+5. The broker decrypts the AES-256-GCM credential in memory and writes the signon values to a short-lived PHP session file under `/var/lib/spanel/phpmyadmin-sessions`. The file is root-owned, group-readable/writable only by `spanel-pma`, and mode `0660`. The panel account cannot read the directory.
+6. The broker returns only the random signon session ID and database name. SPanel sets an HttpOnly, SameSite=Strict cookie scoped to `/phpmyadmin/` with a 60-second lifetime and redirects to phpMyAdmin with the selected database name.
+7. phpMyAdmin's supported signon mode reads the session and authenticates as the site's dedicated localhost-only database user. The database name in the URL is not a credential; neither the database password nor handoff token appears in the URL.
+8. The broker writes an audit event containing database metadata only. Broker errors are generic and do not log tokens or credentials. phpMyAdmin logout clears the signon cookie.
 
-## Authentication and secrets requirements
+## Security boundaries
 
-- Use phpMyAdmin's documented, supported authentication mechanism; do not patch its core or create an undocumented passwordless login.
-- Never pass a database password in a URL, query string, HTML, JavaScript, local storage or logs.
-- Use HTTPS and secure, HttpOnly, appropriately SameSite cookies; validate same-origin return targets to prevent open redirects.
-- Restrict the launch endpoint to authenticated and authorized SPanel administrators. Require re-authentication for privileged administrator-level database access where appropriate.
-- The website database user must only access that website's database(s). It must not have global privileges or access to other websites' databases.
-- The root-only encrypted secret store and key are implemented by the restricted website/database helper. The controlled credential-retrieval broker and phpMyAdmin authentication adapter remain outstanding; the web application must not be given direct read access to the key or encrypted files.
-- Handoff tokens must be random, single-use, short-lived, bound to the intended admin/database and protected against replay and CSRF. Keep the raw token only in server-side session storage during the launch flow; persist only its hash in MariaDB.
-- Until the credential broker and phpMyAdmin integration are implemented and tested, keep the **Open phpMyAdmin** action disabled. If the secret store, SPanel authorization, token validation or phpMyAdmin integration is unavailable, fail closed and show a useful error. Do not silently fall back to an unauthenticated phpMyAdmin login.
-- phpMyAdmin should be installed once per hosting server and kept patched. Use HTTPS and, where practical, restrict access by VPN/IP/firewall.
-- Provide a separate explicit administrator database access path if needed. Do not silently elevate the website user to global database privileges.
+- The panel account never reads the key or encrypted secret files and never receives the plaintext database password in the broker response.
+- The broker accepts no command-line arguments, has a strict bounded request contract, validates IDs and database ownership, and is installed root-owned with a narrow sudoers rule.
+- The phpMyAdmin PHP-FPM pool runs as `spanel-pma`, not `spanel`; it has no sudo rule. The signon session directory is root-owned and inaccessible to the panel account.
+- The broker accepts only a short-lived, single-use token bound to the administrator, database and remote address. The token is consumed before credentials are made available to phpMyAdmin.
+- phpMyAdmin is configured for a fixed local server with arbitrary-server access disabled. Each database user has grants scoped to its own database and no `GRANT OPTION`.
+- On the private HTTP-only VM, the cookie's Secure flag is disabled because HTTPS is not configured. Do not expose this installation publicly. Production use must configure HTTPS and regenerate/review the phpMyAdmin cookie configuration.
+- Database passwords and raw tokens must never be written to logs, browser storage, HTML, JavaScript or URL parameters. If broker, secret-store or authorization checks fail, signon must fail closed.
 
-## Database password rotation
+## Remaining work
 
-If a website database password is rotated:
-- Update the MariaDB account and secret store as one controlled job.
-- Test the new credential before reporting success.
-- Update the stored secret only after the intended account change is verified; on failure, record a recoverable state and do not leak either password.
-- Audit the rotation and invalidate outstanding handoff tokens.
-- Show the new password once if the administrator requested it; do not offer recovery of the old password in plaintext.
-
-## Test requirements
-
-- Clicking the database's link opens phpMyAdmin already authenticated and with the correct database selected.
-- Opening the link for Website A cannot access Website B's database.
-- Expired, replayed, tampered or wrong-admin handoff tokens fail closed.
-- Passwords and tokens never appear in browser URLs, referrers, HTML, JavaScript, logs or analytics.
-- Access fails after admin logout/deactivation or authorization revocation.
-- Import/export and SQL actions work within limits permitted for that database user.
-- A broken secrets store or phpMyAdmin service returns a safe error and does not expose credentials.
-- Session cookies and HTTPS settings are verified in the Ubuntu VM before marking the feature complete.
+This integration is implemented in code but has **not been built or VM-tested**. Verify session file permissions, expiry, logout, token replay, disabled-admin handling, database ownership and cross-website isolation using the checklist. SSL, DNS automation, password rotation and safe database backup/removal flows remain separate roadmap items.
