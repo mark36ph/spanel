@@ -63,7 +63,7 @@ find "$APP_DIR" -type f -exec chmod 0640 {} +
 info "Preparing protected website database credential storage"
 install -d -o root -g root -m 0750 /etc/spanel
 install -d -o root -g root -m 0700 /var/lib/spanel /var/lib/spanel/secrets
-openssl rand -hex 32 > /etc/spanel/database-secrets.key
+(umask 077; openssl rand -hex 32 > /etc/spanel/database-secrets.key)
 chown root:root /etc/spanel/database-secrets.key
 chmod 0600 /etc/spanel/database-secrets.key
 [[ "$(stat -c '%U:%G:%a' /etc/spanel/database-secrets.key)" == "root:root:600" ]] || fail "Database secret key permissions are unexpected."
