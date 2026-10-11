@@ -51,6 +51,10 @@ The metadata-only wizard queues `website.provision`. The CLI worker is a separat
 
 **Provisioning is currently disabled by default:** the restricted helper has not yet been installed. If it is missing, not executable, rejects the request, exits unsuccessfully or returns a mismatched response, the worker fails the job rather than pretending the website was created. Do not install a permissive sudo rule or create a placeholder helper that returns success.
 
+A separate data-only contract defines the read-only preflight operation `website.preflight`. Its request contains the website ID, normalized domain, optional PHP version, database choice and required disk space. Its response must echo the website ID/domain and provide exact typed facts; SPanel evaluates these facts and refuses to build a provisioning plan if a blocking check fails. The contract and step planner do not execute commands or modify the server.
+
+The data-only workflow planner defines this fixed order: create site identity and directories; stage and validate PHP-FPM; optionally create the database/user; stage and validate Nginx; enable/reload Nginx; then health-check the site. Every step has a named rollback/recovery action. The plan explicitly reports `execution_enabled: false` until a reviewed restricted service exists.
+
 The helper's narrow JSON request contract is:
 - `operation`: exactly `website.provision`
 - `website_id`: positive integer from the queued website record
