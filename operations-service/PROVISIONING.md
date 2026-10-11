@@ -25,7 +25,8 @@ The installer targets a clean, disposable Ubuntu Server 24.04 LTS VM. It has not
 ## Important limitations
 
 - Database creation and website setup are implemented in code but **not yet built or VM-tested**. Do not use this on a production host.
-- The SPanel site page and launch endpoint now use a short-lived, single-use handoff with phpMyAdmin's documented signon mode. The root-owned broker validates the active admin, local server, website/database ownership and token binding, then writes credentials only to a root-owned session file accessible to the separate `spanel-pma` pool. It returns no database password to the SPanel application. This flow is code-complete but not yet VM-tested.
+- The SPanel site page and launch endpoint now use a short-lived, single-use handoff with phpMyAdmin's documented signon mode. The root-owned broker validates the active admin, local server, website/database ownership and token binding, then writes credentials only to a root-owned session file accessible to the separate `spanel-pma` pool. It returns no database password to the SPanel application.
+- Nginx checks the SPanel session and active-admin state on every phpMyAdmin request using an internal-only auth endpoint. Panel and phpMyAdmin session directories, FPM identities and sockets are isolated; logout clears both phpMyAdmin cookies. This flow is code-complete but not yet VM-tested.
 - phpMyAdmin signon, the broker's session permissions, cookie expiry/logout and cross-site isolation still require VM acceptance tests. SSL issuance, DNS automation, website suspension/removal, backups/restores and safe update/rollback are not enabled end-to-end.
 - The helper's rollback is best-effort, not a transaction across Linux accounts, MariaDB and system daemons. If a job is marked `rollback_required`, inspect the host before any retry.
 
