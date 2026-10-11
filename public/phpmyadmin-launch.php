@@ -12,7 +12,13 @@ Security::startSession($config);
 header('Referrer-Policy: no-referrer');
 require_once dirname(__DIR__) . '/app/Auth.php';
 
-$admin = Auth::requireLogin();
+$admin = Auth::user();
+if (!$admin) {
+    unset($_SESSION['pma_pending_handoff']);
+    session_write_close();
+    header('Location: /login.php', true, 303);
+    exit;
+}
 $pending = $_SESSION['pma_pending_handoff'] ?? null;
 unset($_SESSION['pma_pending_handoff']);
 
