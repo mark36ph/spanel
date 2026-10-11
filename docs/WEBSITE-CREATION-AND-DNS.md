@@ -45,6 +45,23 @@ Display:
 - Database credentials only at creation time where applicable.
 - Links to the website's own management sidebar.
 
+## Provisioning worker contract (current implementation status)
+
+The metadata-only wizard queues `website.provision`. The CLI worker is a separate process and invokes only the fixed path `/usr/local/sbin/spanel-ops` through non-interactive sudo; it never accepts a command, filesystem path, SQL statement or service name from the job payload. The worker checks that the job, website and server assignments match and requires the server to be marked local.
+
+**Provisioning is currently disabled by default:** the restricted helper has not yet been installed. If it is missing, not executable, rejects the request, exits unsuccessfully or returns a mismatched response, the worker fails the job rather than pretending the website was created. Do not install a permissive sudo rule or create a placeholder helper that returns success.
+
+The helper's narrow JSON request contract is:
+- `operation`: exactly `website.provision`
+- `website_id`: positive integer from the queued website record
+- `domain`: the website's validated primary domain
+- `php_version`: `null`, `8.2` or `8.3`
+- `create_database`: boolean
+
+A successful response must be JSON containing `ok: true`, the same `website_id` and `domain`, the requested `php_version`, and a boolean `database_created` that exactly matches the request. The worker derives database names from the numeric website ID (`spw_<id>` and `spu_<id>`); it never trusts resource names supplied by the helper or browser. The helper must reject extra/missing fields, oversized input, malformed domains, unsupported versions and all unrecognized operations. It must use fixed command arguments and templates, validate every generated path, and never evaluate a shell command.
+
+The privileged implementation must be reviewed and tested on a disposable Ubuntu VM before it is installed or enabled. Provisioning needs transactional/recoverable steps for Linux identity, directory permissions, PHP-FPM pool, Nginx configuration, service validation/reload and optional MariaDB database/user creation. It must not delete or overwrite existing resources on name collisions. The first release should stop safely and report a redacted error if any step cannot be completed or rolled back.
+
 ## Domain and DNS design
 
 ### Keep registration separate
