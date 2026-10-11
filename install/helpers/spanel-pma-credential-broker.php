@@ -173,7 +173,7 @@ function brokerCreateSignonSession(string $sessionId, string $username, string $
         'PMA_single_signon_user' => $username,
         'PMA_single_signon_password' => $password,
         'PMA_single_signon_host' => 'localhost',
-        'PMA_single_signon_port' => 3306,
+        'PMA_single_signon_port' => '3306',
         'PMA_single_signon_HMAC_secret' => bin2hex(random_bytes(32)),
     ];
     session_write_close();
