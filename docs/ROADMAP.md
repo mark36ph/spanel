@@ -22,7 +22,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [x] Implement the initial CLI-only, advisory-lock-protected, checksum-aware migration runner with `--status` and `--dry-run`; VM/fresh-install/legacy-upgrade/failure-recovery/restore tests remain outstanding.
 
 ## Stage 2 — Repeatable CLI installation
-- [ ] Build a reviewed installer script for a clean Ubuntu VM or VPS.
+- [x] Add a first-install Ubuntu Server 24.04 VM installer draft at `install/ubuntu-vm-install.sh`. [ ] Review and run it on a clean disposable VM; verify fresh install, permissions, Nginx/PHP-FPM, migrations and login.
 - [x] Add a read-only CLI preflight for PHP/extensions, local configuration, DB connectivity, required tables and migration checksum drift. [ ] Verify its output on the Ubuntu VM.
 - [ ] Complete installer preflight checks for supported OS, privileges, dependencies, network and disk space.
 - [ ] Install and configure PHP-FPM, Nginx and MariaDB as appropriate.
@@ -35,7 +35,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 
 ## Stage 3 — Core data model and server inventory
 - [x] Add the first forward migration for `website_domains`, preserving `websites.domain` for compatibility and refusing invalid/normalized-colliding domains or websites without server assignments. [ ] Run and test the migration against fresh and representative legacy databases in the Ubuntu VM.
-- [x] Add server inventory UI and metadata-only server registration. [ ] Have the installer register the local VM/VPS and verify it in the Ubuntu VM.
+- [x] Add server inventory UI and metadata-only server registration, and add local-server registration to the installer draft. [ ] Verify registration in the Ubuntu VM.
 - [ ] Track server health, maintenance state, capabilities and panel/agent version.
 - [x] Add server inventory, website inventory links and per-website management overview. [ ] Add health checks and inventory filters.
 - [ ] Support adding more servers later without changing the website model.
