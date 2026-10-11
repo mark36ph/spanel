@@ -48,8 +48,8 @@ type response struct {
 }
 
 func main() {
-	if os.Geteuid() != 0 {
-		fmt.Fprintln(os.Stderr, "spanel-ops service must run under its dedicated systemd unit")
+	if os.Geteuid() == 0 {
+		fmt.Fprintln(os.Stderr, "read-only operations service must not run as root")
 		os.Exit(1)
 	}
 	if len(os.Args) != 1 {
