@@ -84,6 +84,35 @@ if (PHP_OS_FAMILY !== 'Windows' && is_file($configPath)) {
     }
 }
 
+if (PHP_OS_FAMILY !== 'Windows') {
+    $helperPath = '/usr/local/sbin/spanel-ops';
+    $helperStat = @lstat($helperPath);
+    $helperOwner = $helperStat !== false ? (int)($helperStat['uid'] ?? -1) : -1;
+    $helperMode = $helperStat !== false ? (int)($helperStat['mode'] ?? 0) : 0;
+    $helperReady = $helperStat !== false
+        && is_file($helperPath)
+        && is_executable($helperPath)
+        && $helperOwner === 0
+        && ($helperMode & 0022) === 0;
+    doctorCheck('Restricted website provisioner', $helperReady, 'root-owned helper is present and not group/world writable', 'Installer must build/install /usr/local/sbin/spanel-ops with root ownership and safe permissions.', true);
+
+    $keyPath = '/etc/spanel/database-secrets.key';
+    $keyStat = @lstat($keyPath);
+    $keyReady = $keyStat !== false
+        && is_file($keyPath)
+        && (int)($keyStat['uid'] ?? -1) === 0
+        && (((int)($keyStat['mode'] ?? 0)) & 0077) === 0;
+    $secretDir = @lstat('/var/lib/spanel/secrets');
+    $secretDirReady = $secretDir !== false
+        && is_dir('/var/lib/spanel/secrets')
+        && (int)($secretDir['uid'] ?? -1) === 0
+        && (((int)($secretDir['mode'] ?? 0)) & 0077) === 0;
+    doctorCheck('Encrypted database secret store', $keyReady && $secretDirReady, 'root-only key and secret directory are present', 'Run the first-install setup on a clean Ubuntu VM; the panel account must not be able to read the key or secret files.', true);
+
+    $timerReady = is_file('/etc/systemd/system/spanel-worker.timer');
+    doctorCheck('Provisioning queue timer', $timerReady, 'systemd timer unit is installed', 'Install the spanel-worker.timer unit and enable it with systemd.', true);
+}
+
 $pdo = null;
 if ($configValid && extension_loaded('pdo_mysql')) {
     try {
