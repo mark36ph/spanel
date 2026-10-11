@@ -30,4 +30,6 @@ jobs:
           set -euo pipefail
           while IFS= read -r -d '' file; do
             php -l "$file"
-          done < <(find app bin config database public -type f -name '*.php' -print0)
+          done < <(find app bin config database public tests -type f -name '*.php' -print0)
+      - name: Run operation queue validation tests
+        run: php tests/operation_queue_validation.php
