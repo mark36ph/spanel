@@ -6,6 +6,9 @@ Use this checklist only on a **disposable private Ubuntu Server 24.04 LTS VM**, 
 
 - [ ] Check out/copy the latest `main` branch into the VM.
 - [ ] From the repository root, review and run `sudo bash install/ubuntu-vm-install.sh`.
+- [ ] Confirm root is used for system setup, then the installer creates a dedicated `spanel` account with a non-login shell and nonzero UID.
+- [ ] Confirm the installer refuses to adopt an already-existing `spanel` account and stops rather than trusting its identity.
+- [ ] Confirm application files are owned by root, the panel account cannot modify `bin/worker.php`, and `config/config.local.php` is `root:www-data` mode `0640`.
 - [ ] Confirm the installer creates the panel DB/configuration, applies migrations, registers the local server, configures Nginx/PHP-FPM, and prompts for the administrator.
 - [ ] Confirm the installer finishes its HTTP smoke test and read-only doctor check without errors.
 - [ ] Confirm the installer rejects an unreplaced `CHANGE_ME` DB password or incorrect generated base URL.
