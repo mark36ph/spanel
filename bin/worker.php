@@ -15,6 +15,7 @@ if (PHP_SAPI !== 'cli') {
 
 require_once dirname(__DIR__) . '/app/Database.php';
 require_once dirname(__DIR__) . '/app/DomainName.php';
+require_once dirname(__DIR__) . '/app/ProvisioningContract.php';
 
 const WORKER_LOCK = 'spanel_operations_worker';
 const OPS_HELPER = '/usr/local/sbin/spanel-ops';
@@ -153,9 +154,7 @@ try {
         if (DomainName::normalize($domain) !== $domain) {
             throw new RuntimeException('Website domain failed provisioning validation.');
         }
-        // A failed or mismatched helper response can follow partial system changes.
-        $provisioningMayHaveChangedSystem = is_file(OPS_HELPER) && is_executable(OPS_HELPER);
-        $response = invokeOperationsHelper([
+        $request = ProvisioningContract::validateRequest([
             'operation' => 'website.provision',
             'website_id' => $websiteId,
             'domain' => $domain,
@@ -163,22 +162,15 @@ try {
             'create_database' => $payload['create_database_requested'],
         ]);
 
-        // Treat the helper response as untrusted input. Do not update panel metadata
-        // unless every returned field matches the requested operation.
-        $actualPhpVersion = $response['php_version'] ?? null;
-        $requestedPhpVersion = $payload['php_version_requested'];
-        $phpVersionMatches = $requestedPhpVersion === null
-            ? in_array($actualPhpVersion, ['8.2', '8.3'], true)
-            : $actualPhpVersion === $requestedPhpVersion;
-        if (($response['website_id'] ?? null) !== $websiteId
-            || ($response['domain'] ?? null) !== $domain
-            || !array_key_exists('database_created', $response)
-            || !is_bool($response['database_created'])
-            || $response['database_created'] !== $payload['create_database_requested']
-            || !array_key_exists('php_version', $response)
-            || !$phpVersionMatches) {
-            throw new RuntimeException('Restricted operations helper returned a mismatched result.');
+        // A failed or mismatched helper response can follow partial system changes.
+        $provisioningMayHaveChangedSystem = is_file(OPS_HELPER) && is_executable(OPS_HELPER);
+        $response = invokeOperationsHelper($request);
+        try {
+            $response = ProvisioningContract::validateResponse($response, $request);
+        } catch (InvalidArgumentException $contractError) {
+            throw new RuntimeException('Restricted operations helper returned a mismatched result.', 0, $contractError);
         }
+        $actualPhpVersion = $response['php_version'];
 
         $pdo->beginTransaction();
         $updateWebsite = $pdo->prepare(
