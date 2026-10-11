@@ -55,6 +55,12 @@ find "$APP_DIR" -type f -exec chmod 0640 {} +
 
 info "Starting MariaDB and generating private panel database credentials"
 systemctl enable --now mariadb
+if mariadb -Nse "SHOW DATABASES LIKE '$DB_NAME'" | grep -Fxq "$DB_NAME"; then
+    fail "A database named '$DB_NAME' already exists. Inspect it and use a clean VM rather than overwriting it."
+fi
+if mariadb -Nse "SELECT CONCAT(User, '@', Host) FROM mysql.user WHERE User = '$DB_USER' AND Host IN ('localhost', '127.0.0.1')" | grep -q .; then
+    fail "A database account for '$DB_USER' already exists. Inspect it and use a clean VM."
+fi
 DB_PASSWORD="$(openssl rand -hex 32)"
 # Password is generated as hex so it is safe in the quoted SQL literal below.
 mariadb <<SQL
