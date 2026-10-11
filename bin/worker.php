@@ -146,13 +146,27 @@ try {
             throw new RuntimeException('Queued operation payload failed validation.');
         }
 
+        $websiteId = (int)$job['website_id'];
+        $domain = (string)$job['domain'];
         $response = invokeOperationsHelper([
             'operation' => 'website.provision',
-            'website_id' => (int)$job['website_id'],
-            'domain' => (string)$job['domain'],
+            'website_id' => $websiteId,
+            'domain' => $domain,
             'php_version' => $payload['php_version_requested'],
             'create_database' => $payload['create_database_requested'],
         ]);
+
+        // Treat the helper response as untrusted input. Do not update panel metadata
+        // unless every returned field matches the requested operation.
+        if (($response['website_id'] ?? null) !== $websiteId
+            || ($response['domain'] ?? null) !== $domain
+            || !array_key_exists('database_created', $response)
+            || !is_bool($response['database_created'])
+            || $response['database_created'] !== $payload['create_database_requested']
+            || !array_key_exists('php_version', $response)
+            || $response['php_version'] !== $payload['php_version_requested']) {
+            throw new RuntimeException('Restricted operations helper returned a mismatched result.');
+        }
 
         $pdo->beginTransaction();
         $updateWebsite = $pdo->prepare(
@@ -171,11 +185,49 @@ try {
         $domainUpdate = $pdo->prepare(
             "UPDATE website_domains SET status = 'active' WHERE website_id = :website_id AND is_primary = 1"
         );
-        $domainUpdate->execute(['website_id' => (int)$job['website_id']]);
+        $domainUpdate->execute(['website_id' => $websiteId]);
+
+        if ($response['database_created'] === true) {
+            // Resource names are derived from the numeric website ID, never from
+            // browser input or helper-provided names.
+            $databaseName = 'spw_' . $websiteId;
+            $databaseUser = 'spu_' . $websiteId;
+            $existingDatabase = $pdo->prepare(
+                'SELECT website_id, server_id, database_name, database_user
+                 FROM website_databases WHERE website_id = :website_id OR database_name = :database_name OR database_user = :database_user'
+            );
+            $existingDatabase->execute([
+                'website_id' => $websiteId,
+                'database_name' => $databaseName,
+                'database_user' => $databaseUser,
+            ]);
+            $existingRows = $existingDatabase->fetchAll();
+            if ($existingRows) {
+                if (count($existingRows) !== 1
+                    || (int)$existingRows[0]['website_id'] !== $websiteId
+                    || (int)$existingRows[0]['server_id'] !== (int)$job['server_id']
+                    || $existingRows[0]['database_name'] !== $databaseName
+                    || $existingRows[0]['database_user'] !== $databaseUser) {
+                    throw new RuntimeException('Database metadata conflicts with an existing website resource.');
+                }
+            } else {
+                $insertDatabase = $pdo->prepare(
+                    'INSERT INTO website_databases (website_id, server_id, database_name, database_user)
+                     VALUES (:website_id, :server_id, :database_name, :database_user)'
+                );
+                $insertDatabase->execute([
+                    'website_id' => $websiteId,
+                    'server_id' => (int)$job['server_id'],
+                    'database_name' => $databaseName,
+                    'database_user' => $databaseUser,
+                ]);
+            }
+        }
+
         finishJob($pdo, $jobId, 'succeeded', null, null, [
-            'website_id' => (int)$job['website_id'],
-            'domain' => (string)$job['domain'],
-            'database_created' => (bool)($response['database_created'] ?? false),
+            'website_id' => $websiteId,
+            'domain' => $domain,
+            'database_created' => $response['database_created'],
         ]);
         $pdo->commit();
         fwrite(STDOUT, "Completed operation job #{$jobId}.\n");
