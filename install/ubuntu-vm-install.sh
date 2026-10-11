@@ -42,7 +42,7 @@ info "Installing panel runtime packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y nginx mariadb-server php-fpm php-cli php-mysql php-mbstring php-xml php-curl php-intl git ca-certificates tar openssl curl golang-go debconf-utils
-printf 'phpmyadmin phpmyadmin/dbconfig-install boolean false\nphpmyadmin phpmyadmin/reconfigure-webserver multiselect\n' | debconf-set-selections
+printf 'phpmyadmin phpmyadmin/dbconfig-install boolean false\nphpmyadmin phpmyadmin/reconfigure-webserver multiselect \n' | debconf-set-selections
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends phpmyadmin
 
 PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
@@ -333,6 +333,10 @@ if ! curl --fail --silent --show-error http://127.0.0.1/login.php -o /dev/null; 
     fail "SPanel did not return HTTP success from /login.php. Inspect nginx and PHP-FPM logs before retrying."
 fi
 printf 'HTTP login page returned successfully.\n'
+PMA_HTTP_STATUS="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' http://127.0.0.1/phpmyadmin/)" \
+    || fail "Could not check the phpMyAdmin signon endpoint."
+[[ "$PMA_HTTP_STATUS" == "302" ]] || fail "phpMyAdmin did not redirect unauthenticated access to SPanel sign-in (HTTP $PMA_HTTP_STATUS)."
+printf 'phpMyAdmin signon endpoint returned the expected unauthenticated redirect.\n'
 
 info "Enabling the queued provisioning worker"
 systemctl enable --now spanel-worker.timer
