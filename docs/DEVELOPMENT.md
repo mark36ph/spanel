@@ -40,21 +40,19 @@ FLUSH PRIVILEGES;
 EXIT;
 ```
 
-From the repository root, run the read-only preflight first. It checks PHP/extensions, local configuration, database connectivity and migration drift without changing the system:
+Configure the local settings first, then initialise the database and apply migrations:
 ```bash
-php bin/doctor.php
-```
-
-Then initialise the database:
-```bash
-mariadb -u spanel_app -p spanel < database/schema.sql
 cp config/config.example.php config/config.local.php
 nano config/config.local.php
+mariadb -u spanel_app -p spanel < database/schema.sql
 php bin/migrate.php --status
 php bin/migrate.php --dry-run
 php bin/migrate.php
 php bin/create-admin.php
+php bin/doctor.php
 ```
+
+The doctor command is read-only, but its full schema checks are expected to pass only after the base schema and migrations have been applied.
 
 For a quick development-only test, run:
 ```bash
