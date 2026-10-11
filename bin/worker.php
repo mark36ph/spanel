@@ -37,8 +37,17 @@ function finishJob(PDO $pdo, int $jobId, string $status, ?string $errorCode = nu
 
 function invokeOperationsHelper(array $request): array
 {
-    if (!is_file(OPS_HELPER) || !is_executable(OPS_HELPER)) {
-        throw new RuntimeException('Restricted operations helper is not installed; provisioning remains disabled.');
+    // Refuse symlinks and helpers writable by anyone other than root. sudo must
+    // never execute a helper that the panel account or another unprivileged
+    // account can replace or modify.
+    clearstatcache(true, OPS_HELPER);
+    $helperStat = is_link(OPS_HELPER) ? false : @lstat(OPS_HELPER);
+    if (!is_array($helperStat)
+        || !is_file(OPS_HELPER)
+        || !is_executable(OPS_HELPER)
+        || (int)($helperStat['uid'] ?? -1) !== 0
+        || (((int)($helperStat['mode'] ?? 0)) & 0022) !== 0) {
+        throw new RuntimeException('Restricted operations helper is missing or fails ownership/permission checks; provisioning remains disabled.');
     }
 
     $pipes = [];
