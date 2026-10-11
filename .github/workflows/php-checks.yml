@@ -35,3 +35,5 @@ jobs:
         run: php tests/operation_queue_validation.php
       - name: Run domain name validation tests
         run: php tests/domain_name_validation.php
+      - name: Run phpMyAdmin handoff input tests
+        run: php tests/phpmyadmin_handoff_validation.php
