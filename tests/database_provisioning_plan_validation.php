@@ -22,6 +22,8 @@ expect($plan['password_included'] === false, 'A password must never be present i
 expect($plan['execution_enabled'] === false, 'The plan must not enable execution.');
 expect(!in_array('ALL PRIVILEGES', $plan['privileges'], true), 'Global privileges must not be granted.');
 expect(!in_array('GRANT OPTION', $plan['privileges'], true), 'GRANT OPTION must not be granted.');
+expect(in_array('DROP', $plan['privileges'], true), 'Database-level schema management should support DROP.');
+expect(in_array('CREATE VIEW', $plan['privileges'], true), 'Database-level view management should be supported.');
 
 foreach ([0, -1] as $invalidId) {
     try {
