@@ -93,21 +93,124 @@ func main() {
 }
 
 func parseRequest(input []byte) (request, error) {
+	if err := rejectDuplicateJSONKeys(input); err != nil {
+		return request{}, err
+	}
 	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(input, &raw); err != nil { return request{}, err }
-	allowed := map[string]bool{"operation":true,"website_id":true,"domain":true,"php_version":true,"create_database":true}
-	if len(raw) != len(allowed) { return request{}, errors.New("wrong field count") }
-	for k := range raw { if !allowed[k] { return request{}, errors.New("unknown field") } }
+	if err := json.Unmarshal(input, &raw); err != nil {
+		return request{}, err
+	}
+	allowed := map[string]bool{"operation": true, "website_id": true, "domain": true, "php_version": true, "create_database": true}
+	if len(raw) != len(allowed) {
+		return request{}, errors.New("wrong field count")
+	}
+	for key := range raw {
+		if !allowed[key] {
+			return request{}, errors.New("unknown field")
+		}
+	}
+	// encoding/json accepts null for several scalar Go types without an error.
+	// Enforce JSON types explicitly so null cannot silently become false/zero.
+	var operation, domain string
+	if err := json.Unmarshal(raw["operation"], &operation); err != nil || string(raw["operation"]) == "null" {
+		return request{}, errors.New("operation must be a string")
+	}
+	if err := json.Unmarshal(raw["domain"], &domain); err != nil || string(raw["domain"]) == "null" {
+		return request{}, errors.New("domain must be a string")
+	}
+	if string(raw["create_database"]) != "true" && string(raw["create_database"]) != "false" {
+		return request{}, errors.New("create_database must be a boolean")
+	}
+	if string(raw["php_version"]) != "null" {
+		var version string
+		if err := json.Unmarshal(raw["php_version"], &version); err != nil {
+			return request{}, errors.New("php_version must be a string or null")
+		}
+	}
 	var r request
-	if err := json.Unmarshal(input, &r); err != nil { return r, err }
-	if r.Operation != "website.provision" || r.WebsiteID < 1 || !validDomain(r.Domain) { return r, errors.New("invalid operation or identity") }
-	if r.PHPVersion != nil && *r.PHPVersion != "8.2" && *r.PHPVersion != "8.3" { return r, errors.New("unsupported PHP") }
+	if err := json.Unmarshal(input, &r); err != nil {
+		return r, err
+	}
+	if r.Operation != "website.provision" || r.WebsiteID < 1 || !validDomain(r.Domain) {
+		return r, errors.New("invalid operation or identity")
+	}
+	if r.PHPVersion != nil && *r.PHPVersion != "8.2" && *r.PHPVersion != "8.3" {
+		return r, errors.New("unsupported PHP")
+	}
 	return r, nil
 }
 
+// rejectDuplicateJSONKeys prevents ambiguous requests such as two operation or
+// create_database fields, which encoding/json otherwise accepts using the last value.
+func rejectDuplicateJSONKeys(input []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(input))
+	var parseValue func() error
+	parseValue = func() error {
+		token, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		delim, ok := token.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch delim {
+		case '{':
+			seen := make(map[string]bool)
+			for decoder.More() {
+				keyToken, err := decoder.Token()
+				if err != nil {
+					return err
+				}
+				key, ok := keyToken.(string)
+				if !ok || seen[key] {
+					return errors.New("invalid or duplicate JSON key")
+				}
+				seen[key] = true
+				if err := parseValue(); err != nil {
+					return err
+				}
+			}
+			end, err := decoder.Token()
+			if err != nil || end != json.Delim('}') {
+				return errors.New("invalid JSON object")
+			}
+		case '[':
+			for decoder.More() {
+				if err := parseValue(); err != nil {
+					return err
+				}
+			}
+			end, err := decoder.Token()
+			if err != nil || end != json.Delim(']') {
+				return errors.New("invalid JSON array")
+			}
+		default:
+			return errors.New("unexpected JSON delimiter")
+		}
+		return nil
+	}
+	if err := parseValue(); err != nil {
+		return err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		if err == nil {
+			return errors.New("trailing JSON value")
+		}
+		return err
+	}
+	return nil
+}
+
 func validDomain(d string) bool {
-	if d == "" || len(d) > 253 || strings.ToLower(d) != d || strings.HasSuffix(d, ".") { return false }
-	for _, l := range strings.Split(d, ".") { if !labelPattern.MatchString(l) { return false } }
+	if d == "" || len(d) > 253 || strings.ToLower(d) != d || strings.HasSuffix(d, ".") || !strings.Contains(d, ".") {
+		return false
+	}
+	for _, label := range strings.Split(d, ".") {
+		if !labelPattern.MatchString(label) {
+			return false
+		}
+	}
 	return true
 }
 
@@ -130,7 +233,14 @@ func (p *provisioner) run(r request) error {
 	p.poolPath = "/etc/php/"+p.phpVersion+"/fpm/pool.d/"+pool+".conf"
 	p.nginxPath = "/etc/nginx/sites-available/"+pool
 	p.nginxLink = "/etc/nginx/sites-enabled/"+pool
-	if _, err := user.Lookup(username); err == nil { return errors.New("user collision") }
+	if _, err := user.Lookup(username); err == nil {
+		return errors.New("user collision")
+	} else {
+		var unknown user.UnknownUserError
+		if !errors.As(err, &unknown) {
+			return errors.New("could not safely verify whether the site user exists")
+		}
+	}
 	for _, path := range []string{root,p.poolPath,"/etc/php/8.2/fpm/pool.d/"+pool+".conf","/etc/php/8.3/fpm/pool.d/"+pool+".conf",p.nginxPath,p.nginxLink} {
 		if exists(path) || isSymlink(path) { return errors.New("resource collision") }
 	}
@@ -149,15 +259,17 @@ func (p *provisioner) run(r request) error {
 	}
 	if err := os.Mkdir(root, 0750); err != nil { return err }
 	p.createdRoot = true
-	if err := runCommand(10*time.Second, "/usr/sbin/useradd", "--system", "--home-dir", root, "--no-create-home", "--shell", "/usr/sbin/nologin", username); err != nil { return err }
+	if err := runCommand(10*time.Second, "/usr/sbin/useradd", "--system", "--user-group", "--home-dir", root, "--no-create-home", "--shell", "/usr/sbin/nologin", username); err != nil { return err }
 	p.createdUser = true
 	wwwDataGID, err := gidGroup("www-data")
 	if err != nil { return err }
-	if err := os.Chown(root, uid(username), wwwDataGID); err != nil { return err }
+	siteUID, err := uid(username)
+	if err != nil { return err }
+	if err := os.Chown(root, siteUID, wwwDataGID); err != nil { return err }
 	public := p.publicPath
 	if err := os.Mkdir(public,0750); err != nil { return err }
 	p.createdPublic = true
-	if err := os.Chown(public, uid(username), wwwDataGID); err != nil { return err }
+	if err := os.Chown(public, siteUID, wwwDataGID); err != nil { return err }
 
 	socket := "/run/php/"+pool+".sock"
 	poolConfig := fmt.Sprintf("[%s]\nuser = %s\ngroup = %s\nlisten = %s\nlisten.owner = www-data\nlisten.group = www-data\nlisten.mode = 0660\npm = ondemand\npm.max_children = 5\npm.process_idle_timeout = 10s\npm.max_requests = 500\nclear_env = yes\nsecurity.limit_extensions = .php\n", pool, username, username, socket)
@@ -194,8 +306,17 @@ func (p *provisioner) rollback() {
 	if p.createdRoot { _ = os.Remove(p.rootPath) }
 }
 
-func uid(username string) int { u,err:=user.Lookup(username); if err!=nil{return 0}; n,_:=strconv.Atoi(u.Uid); return n }
-func gid(username string) int { u,err:=user.Lookup(username); if err!=nil{return 0}; n,_:=strconv.Atoi(u.Gid); return n }
+func uid(username string) (int, error) {
+	u, err := user.Lookup(username)
+	if err != nil {
+		return 0, err
+	}
+	n, err := strconv.Atoi(u.Uid)
+	if err != nil || n < 1 {
+		return 0, errors.New("invalid site user ID")
+	}
+	return n, nil
+}
 func gidGroup(name string) (int, error) { g,err:=user.LookupGroup(name); if err!=nil{return 0,err}; n,err:=strconv.Atoi(g.Gid); return n,err }
 func regularExecutable(path string) bool { i,e:=os.Stat(path); return e==nil&&i.Mode().IsRegular()&&i.Mode().Perm()&0111!=0 }
 func secureRootDirectory(path string) bool {
