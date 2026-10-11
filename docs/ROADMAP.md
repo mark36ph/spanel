@@ -40,8 +40,11 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Support adding more servers later without changing the website model.
 
 ## Stage 4 — Safe website provisioning
-- [x] Add the initial `operation_jobs` table migration for queued/running/succeeded/failed/rollback-required/cancelled work. [x] Add an allowlisted `OperationQueue` service and CI validation tests for the website provisioning payload. [ ] Implement and test the worker and restricted typed operations.
-- [ ] Build a restricted local operations service; never expose arbitrary shell execution to PHP.
+- [x] Add the initial `operation_jobs` table migration for queued/running/succeeded/failed/rollback-required/cancelled work.
+- [x] Add an allowlisted `OperationQueue` service and CI validation tests for the website provisioning payload.
+- [x] Add a CLI-only, advisory-lock-protected worker that checks job ownership and records database metadata only after a matching helper response. [ ] Run worker tests in the Ubuntu VM.
+- [ ] Implement and security-test the root-owned restricted typed operations helper; until then, the worker fails closed and real provisioning is disabled.
+- [ ] Build a restricted local operations service; never expose arbitrary shell execution to PHP. Required contract and fail-closed behavior must be reviewed before enabling system changes.
 - [ ] Validate domains, paths, PHP versions and generated resource names; include DNS preflight checks.
 - [ ] Create a dedicated Linux user and PHP-FPM pool per website.
 - [ ] Create an isolated document root and safe permissions.
