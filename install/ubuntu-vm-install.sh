@@ -223,6 +223,8 @@ $spanelLocalConfig = require '/opt/spanel/config/config.local.php';
 $spanelBaseUrl = rtrim((string)($spanelLocalConfig['app']['base_url'] ?? ''), '/');
 $spanelSecureCookie = str_starts_with($spanelBaseUrl, 'https://');
 $cfg['AllowArbitraryServer'] = false;
+$cfg['CookieSameSite'] = 'Strict';
+$cfg['CookieSecure'] = $spanelSecureCookie;
 $cfg['Servers'][1]['auth_type'] = 'signon';
 $cfg['Servers'][1]['host'] = 'localhost';
 $cfg['Servers'][1]['port'] = '3306';
@@ -280,7 +282,7 @@ server {
 
     location ~ ^/phpmyadmin/(.+\.php)$ {
         root /usr/share;
-        try_files $uri =404;
+        try_files \$uri =404;
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/run/php/spanel-pma.sock;
     }
