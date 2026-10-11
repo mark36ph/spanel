@@ -102,7 +102,7 @@ final class PhpMyAdminHandoff
         $pdo->beginTransaction();
         try {
             $stmt = $pdo->prepare(
-                'SELECT id, admin_id, website_database_id
+                'SELECT id, admin_id, website_database_id, remote_addr
                  FROM phpmyadmin_handoffs
                  WHERE token_hash = :token_hash
                    AND admin_id = :admin_id
@@ -131,6 +131,7 @@ final class PhpMyAdminHandoff
             return [
                 'admin_id' => (int)$row['admin_id'],
                 'website_database_id' => (int)$row['website_database_id'],
+                'remote_addr' => $row['remote_addr'] === null ? null : (string)$row['remote_addr'],
             ];
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
