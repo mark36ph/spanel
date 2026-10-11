@@ -111,6 +111,32 @@ if (PHP_OS_FAMILY !== 'Windows') {
 
     $timerReady = is_file('/etc/systemd/system/spanel-worker.timer');
     doctorCheck('Provisioning queue timer', $timerReady, 'systemd timer unit is installed', 'Install the spanel-worker.timer unit and enable it with systemd.', true);
+
+    $brokerPath = '/usr/local/sbin/spanel-pma-credential-broker';
+    $brokerStat = @lstat($brokerPath);
+    $brokerReady = $brokerStat !== false
+        && is_file($brokerPath)
+        && is_executable($brokerPath)
+        && (int)($brokerStat['uid'] ?? -1) === 0
+        && (((int)($brokerStat['mode'] ?? 0)) & 0022) === 0;
+    doctorCheck('phpMyAdmin credential broker', $brokerReady, 'root-owned fixed broker is installed', 'Install the restricted root-owned phpMyAdmin credential broker.', true);
+
+    $phpMyAdminReady = is_file('/usr/share/phpmyadmin/index.php')
+        && is_file('/etc/phpmyadmin/conf.d/99-spanel.php');
+    doctorCheck('phpMyAdmin signon configuration', $phpMyAdminReady, 'phpMyAdmin and SPanel signon configuration are installed', 'Install phpMyAdmin and its SPanel signon configuration.', true);
+
+    $sessionDirPath = '/var/lib/spanel/phpmyadmin-sessions';
+    $sessionDirStat = @lstat($sessionDirPath);
+    $sessionDirReady = $sessionDirStat !== false
+        && is_dir($sessionDirPath)
+        && (int)($sessionDirStat['uid'] ?? -1) === 0
+        && (((int)($sessionDirStat['mode'] ?? 0)) & 0007) === 0
+        && !is_readable($sessionDirPath);
+    doctorCheck('phpMyAdmin signon session isolation', $sessionDirReady, 'session store is root-owned and inaccessible to the panel account', 'Check the root:spanel-pma session directory and ensure the panel account cannot read it.', true);
+
+    $phpVersion = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION;
+    $pmaPoolPath = '/etc/php/' . $phpVersion . '/fpm/pool.d/spanel-pma.conf';
+    doctorCheck('phpMyAdmin FPM pool', is_file($pmaPoolPath), 'dedicated non-panel PHP-FPM pool is installed', 'Install the spanel-pma PHP-FPM pool for the installed PHP version.', true);
 }
 
 $pdo = null;
