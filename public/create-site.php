@@ -20,7 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phpVersion = trim((string)($_POST['php_version'] ?? ''));
     $createDatabase = ($_POST['create_database'] ?? '') === '1';
 
-    if ($name === '' || mb_strlen($name) > 120) {
+    if ($createDatabase) {
+        $error = 'Database provisioning is not enabled yet. Register the website without a database.';
+    } elseif ($name === '' || mb_strlen($name) > 120) {
         $error = 'Enter a website name (up to 120 characters).';
     } elseif ($domain === null) {
         $error = 'Enter a valid domain name.';
@@ -86,9 +88,9 @@ renderHeader('Create website', 'sites');
 <label>Primary domain<input name="domain" maxlength="253" placeholder="example.com" required pattern="(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*"></label>
 <label>Hosting server<select name="server_id" required><?php foreach ($servers as $server): ?><option value="<?= (int)$server['id'] ?>"><?= Security::escape($server['name'] . ' — ' . $server['hostname'] . ($server['is_local'] ? ' (panel server)' : ' (' . $server['status'] . ')')) ?></option><?php endforeach; ?></select></label>
 <label>PHP version preference<select name="php_version"><option value="">Choose during provisioning</option><option value="8.3">PHP 8.3 (verify installed before provisioning)</option><option value="8.2">PHP 8.2 (verify installed before provisioning)</option></select></label>
-<label class="check-label"><input type="checkbox" name="create_database" value="1" checked> Request a database during provisioning</label>
+<label class="check-label"><input type="checkbox" name="create_database" value="1" disabled> Create a website database <span class="muted">(not enabled yet)</span></label>
 <button class="primary-button" type="submit">Register and queue setup →</button>
 </form></div>
 <?php endif; ?>
-<div class="notice"><strong>Provisioning safety</strong><p>This step records website/domain metadata and a queued job. It does not create Linux users, directories, databases or Nginx configuration until the restricted operations worker is implemented. The document root shown initially is a placeholder.</p></div>
+<div class="notice"><strong>Provisioning safety</strong><p>This form records website/domain metadata and queues a job. The restricted helper can create the site Linux user, isolated document root, PHP-FPM pool and Nginx site when manually installed on the test VM. Database creation and SSL are not enabled, and the initial document root is only a placeholder until provisioning succeeds.</p></div>
 <?php renderFooter(); ?>
