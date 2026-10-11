@@ -103,10 +103,9 @@ function invokeOperationsHelper(array $request): array
         throw new RuntimeException('Restricted operations helper returned an invalid response.');
     }
     if (!is_array($response) || ($response['ok'] ?? false) !== true || $exitCode !== 0) {
-        $message = is_array($response) && is_string($response['error'] ?? null)
-            ? $response['error']
-            : 'Restricted operations helper rejected the request.';
-        throw new RuntimeException(mb_substr($message, 0, 300));
+        // Never trust privileged-process output as a user-facing error. It may
+        // contain paths, SQL details or other operational data.
+        throw new RuntimeException('Restricted operations helper rejected the request or failed; inspect protected server logs.');
     }
     return $response;
 }
