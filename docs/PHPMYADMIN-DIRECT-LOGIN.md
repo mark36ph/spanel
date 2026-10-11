@@ -13,7 +13,7 @@ The link is available only to an authenticated SPanel administrator authorized t
 3. The database metadata row stores only the database name, username, owning website/server, status and a non-secret secret reference.
 4. When the administrator clicks **Open phpMyAdmin**, SPanel re-checks the administrator session, CSRF/intent as appropriate, website/database ownership and server status.
 5. SPanel creates a cryptographically random, short-lived, single-use handoff token. Store only its hash with the intended database/user, requesting admin, expiry and consumed state.
-6. The browser is sent to a same-origin SPanel launch endpoint, which consumes the token once and performs a server-side handoff using phpMyAdmin's supported authentication integration (prefer a reviewed signon integration or equivalent documented mechanism). The handoff must not put the database password or token in query strings, referrer data, browser storage or logs.
+6. Keep the raw handoff token only in the server-side authenticated session for the short launch flow, then redirect the browser to a same-origin SPanel launch endpoint. The endpoint removes the token from the session and consumes it once, then performs a server-side handoff using phpMyAdmin's supported authentication integration (prefer a reviewed signon integration or equivalent documented mechanism). Never put the raw token in HTML, JavaScript, query strings, referrer data, browser storage or logs. If server-side session storage is unavailable, fail closed rather than passing the token through the browser.
 7. phpMyAdmin authenticates as the website's database user and opens the intended database. The user sees normal phpMyAdmin UI and can browse tables, run SQL and import/export within configured limits.
 8. The handoff token is invalidated on use or expiry. Audit the access event without logging credentials or tokens.
 
@@ -25,7 +25,7 @@ The link is available only to an authenticated SPanel administrator authorized t
 - Restrict the launch endpoint to authenticated and authorized SPanel administrators. Require re-authentication for privileged administrator-level database access where appropriate.
 - The website database user must only access that website's database(s). It must not have global privileges or access to other websites' databases.
 - Store the credential in a root-owned secrets store outside the web root, encrypted at rest with a separately protected key; the web application must not have unrestricted filesystem access. A narrowly scoped privileged broker may perform the handoff.
-- Handoff tokens must be random, single-use, short-lived, bound to the intended admin/database and protected against replay and CSRF.
+- Handoff tokens must be random, single-use, short-lived, bound to the intended admin/database and protected against replay and CSRF. Keep the raw token only in server-side session storage during the launch flow; persist only its hash in MariaDB.
 - If the secret store, SPanel authorization, token validation or phpMyAdmin integration is unavailable, fail closed and show a useful error. Do not silently fall back to an unauthenticated phpMyAdmin login.
 - phpMyAdmin should be installed once per hosting server and kept patched. Use HTTPS and, where practical, restrict access by VPN/IP/firewall.
 - Provide a separate explicit administrator database access path if needed. Do not silently elevate the website user to global database privileges.
