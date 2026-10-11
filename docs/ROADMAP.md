@@ -30,6 +30,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [x] Add installer steps to import the base schema and apply versioned migrations. [ ] Verify fresh-install migration results in the VM.
 - [x] Add installer step to create the first administrator with hidden password entry. [ ] Verify interactive password input in the VM.
 - [x] Add installer Nginx configuration limited to the public directory and validate it before reload. [ ] Verify routing and denied paths in the VM.
+- [x] Verify the generated base URL, reject an unreplaced DB-password placeholder, and check protected config/source paths are not served as HTTP 200. [ ] Exercise these guards in the Ubuntu VM.
 - [x] Refuse to overwrite an existing `/opt/spanel` install or existing SPanel Nginx site. [ ] Add and test a documented repair/resume path for interrupted first installs.
 - [x] Document first installation and basic interrupted-operation recovery. [ ] Document and test install repair, backup, restore and uninstall procedures.
 
