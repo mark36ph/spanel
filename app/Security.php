@@ -31,7 +31,21 @@ final class Security
         ]);
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
+        ini_set('session.cookie_httponly', '1');
         session_start();
+
+        // Expire inactive administrator sessions and rotate IDs periodically.
+        $now = time();
+        $lastActivity = (int)($_SESSION['_last_activity'] ?? $now);
+        if ($lastActivity > 0 && ($now - $lastActivity) > 1800) {
+            $_SESSION = [];
+            session_regenerate_id(true);
+            $_SESSION['_last_regenerated'] = $now;
+        } elseif (($now - (int)($_SESSION['_last_regenerated'] ?? $now)) > 900) {
+            session_regenerate_id(true);
+            $_SESSION['_last_regenerated'] = $now;
+        }
+        $_SESSION['_last_activity'] = $now;
     }
 
     public static function escape(?string $value): string
