@@ -14,6 +14,7 @@ Use this checklist only on a **disposable private Ubuntu Server 24.04 LTS VM**, 
 - [ ] Confirm the installer creates the panel DB/configuration, applies migrations, registers the local server, configures Nginx/PHP-FPM, and prompts for the administrator.
 - [ ] Confirm the installer builds and installs the root-owned `/usr/local/sbin/spanel-ops` and `/usr/local/sbin/spanel-pma-credential-broker` helpers and validates `/etc/sudoers.d/spanel-ops`.
 - [ ] Confirm phpMyAdmin is installed without Apache and uses a dedicated `spanel-pma` PHP-FPM pool/socket, not the SPanel `spanel` pool.
+- [ ] Confirm the phpMyAdmin FPM socket is owned by `www-data`, grouped to `spanel-pma`, mode `0660`; Nginx can connect but the `spanel` account cannot connect directly.
 - [ ] Confirm `/var/lib/spanel/phpmyadmin-sessions` is `root:spanel-pma` mode `0770`, and the `spanel` account cannot list/read it.
 - [ ] Confirm `/etc/phpmyadmin/conf.d/99-spanel.php` is readable by `spanel-pma` but not by `spanel`; the phpMyAdmin service account must not be able to read `/opt/spanel/config/config.local.php`.
 - [ ] Confirm `/etc/spanel/database-secrets.key` is `root:root` mode `0600`, and `/var/lib/spanel/secrets` is `root:root` mode `0700`.
