@@ -15,6 +15,7 @@ A custom hosting control panel for Projectabe, FactBurstQuiz, and future sites. 
 - [Architecture and lifecycle](docs/ARCHITECTURE.md)
 - [Database design](docs/DATABASE-DESIGN.md)
 - [Database migrations and phpMyAdmin](docs/DATABASE-MIGRATIONS-AND-PHPMYADMIN.md)
+- [Secure one-click phpMyAdmin login](docs/PHPMYADMIN-DIRECT-LOGIN.md)
 - [Roadmap](docs/ROADMAP.md)
 - [Local development setup](docs/DEVELOPMENT.md)
 - [Installer and updates design](docs/INSTALLER-AND-UPDATES.md)
