@@ -8,6 +8,8 @@ Use this checklist only on a **disposable private Ubuntu Server 24.04 LTS VM**, 
 - [ ] From the repository root, review and run `sudo bash install/ubuntu-vm-install.sh`.
 - [ ] Confirm the installer creates the panel DB/configuration, applies migrations, registers the local server, configures Nginx/PHP-FPM, and prompts for the administrator.
 - [ ] Confirm the installer finishes its HTTP smoke test and read-only doctor check without errors.
+- [ ] Confirm the installer rejects an unreplaced `CHANGE_ME` DB password or incorrect generated base URL.
+- [ ] Confirm `/config/config.local.php`, `/config/config.example.php`, `/database/schema.sql` and `/bin/doctor.php` do not return HTTP `200`.
 - [ ] In VirtualBox, forward host TCP `8081` to guest TCP `80`.
 
 ## 2. Verify services and database
