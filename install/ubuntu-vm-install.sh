@@ -149,6 +149,8 @@ install -d -o root -g root -m 0755 /var/www/spanel/sites
 )
 install -o root -g root -m 0755 /tmp/spanel-ops-provisioner /usr/local/sbin/spanel-ops
 rm -f /tmp/spanel-ops-provisioner
+install -o root -g root -m 0755 "$APP_DIR/install/helpers/spanel-pma-credential-broker.php" /usr/local/sbin/spanel-pma-credential-broker
+[[ "$(stat -c '%U:%G:%a' /usr/local/sbin/spanel-pma-credential-broker)" == "root:root:755" ]] || fail "phpMyAdmin credential broker ownership or permissions are unexpected."
 install -o root -g root -m 0440 "$APP_DIR/install/sudoers/spanel-ops" /etc/sudoers.d/spanel-ops
 if ! visudo -cf /etc/sudoers.d/spanel-ops; then
     rm -f /etc/sudoers.d/spanel-ops /usr/local/sbin/spanel-ops /usr/local/sbin/spanel-pma-credential-broker
@@ -157,8 +159,6 @@ fi
 [[ "$(stat -c '%U:%G:%a' /usr/local/sbin/spanel-ops)" == "root:root:755" ]] || fail "Restricted helper ownership or permissions are unexpected."
 [[ "$(stat -c '%U:%G:%a' /usr/local/sbin/spanel-pma-credential-broker)" == "root:root:755" ]] || fail "phpMyAdmin credential broker ownership or permissions are unexpected."
 [[ "$(stat -c '%U:%G:%a' /var/lib/spanel/secrets)" == "root:root:700" ]] || fail "Database secret directory permissions are unexpected."
-install -o root -g root -m 0755 "$APP_DIR/install/helpers/spanel-pma-credential-broker.php" /usr/local/sbin/spanel-pma-credential-broker
-[[ "$(stat -c '%U:%G:%a' /usr/local/sbin/spanel-pma-credential-broker)" == "root:root:755" ]] || fail "phpMyAdmin credential broker ownership or permissions are unexpected."
 install -o root -g root -m 0644 "$APP_DIR/install/systemd/spanel-worker.service" /etc/systemd/system/spanel-worker.service
 install -o root -g root -m 0644 "$APP_DIR/install/systemd/spanel-worker.timer" /etc/systemd/system/spanel-worker.timer
 systemctl daemon-reload
