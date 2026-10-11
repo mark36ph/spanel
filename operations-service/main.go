@@ -88,15 +88,33 @@ func handle(conn net.Conn) {
 		writeJSON(conn, response{OK: false, Error: "invalid_frame"})
 		return
 	}
-	// Reject pipelining or extra bytes; this endpoint handles exactly one request.
-	if extra, _ := reader.ReadByte(); extra != 0 {
+	// Do not wait for EOF: the PHP client waits for our response before closing.
+	// Reject trailing bytes already received in the bounded reader buffer.
+	if reader.Buffered() != 0 {
 		writeJSON(conn, response{OK: false, Error: "extra_frame_data"})
 		return
 	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(strings.TrimSuffix(frame, "\n")), &raw); err != nil {
+		writeJSON(conn, response{OK: false, Error: "invalid_request"})
+		return
+	}
+	allowed := map[string]bool{
+		"operation": true, "website_id": true, "domain": true,
+		"php_version": true, "create_database": true, "required_disk_bytes": true,
+	}
+	if len(raw) != len(allowed) {
+		writeJSON(conn, response{OK: false, Error: "invalid_request"})
+		return
+	}
+	for key := range raw {
+		if !allowed[key] {
+			writeJSON(conn, response{OK: false, Error: "invalid_request"})
+			return
+		}
+	}
 	var req request
-	decoder := json.NewDecoder(strings.NewReader(strings.TrimSuffix(frame, "\n")))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&req); err != nil {
+	if err := json.Unmarshal([]byte(strings.TrimSuffix(frame, "\n")), &req); err != nil {
 		writeJSON(conn, response{OK: false, Error: "invalid_request"})
 		return
 	}
