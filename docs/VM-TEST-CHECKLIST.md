@@ -18,7 +18,8 @@ Use this checklist only on a **disposable private Ubuntu Server 24.04 LTS VM**, 
 - [ ] Confirm the installer finishes its HTTP smoke test and read-only doctor check without errors.
 - [ ] Confirm the installer rejects an unreplaced `CHANGE_ME` DB password or incorrect generated base URL.
 - [ ] Confirm `/config/config.local.php`, `/config/config.example.php`, `/database/schema.sql` and `/bin/doctor.php` do not return HTTP `200`.
-- [ ] In VirtualBox, forward host TCP `8081` to guest TCP `80`.
+- [ ] In VirtualBox, forward host TCP `8081` to guest TCP `80` for SPanel.
+- [ ] Optionally add a second NAT forward: host TCP `8082` to guest TCP `80` for testing a hosted website in a browser. Add `127.0.0.1 vm-test.example.test` to the Windows hosts file, then browse to `http://vm-test.example.test:8082`. Remove the hosts-file entry when finished; no public DNS is needed.
 
 ## 2. Verify services and database
 
@@ -29,6 +30,8 @@ PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
 sudo systemctl --no-pager --full status nginx "php${PHP_VERSION}-fpm" mariadb
 sudo -u spanel php /opt/spanel/bin/doctor.php
 sudo -u spanel php /opt/spanel/bin/migrate.php --status
+sudo systemctl --no-pager --full status spanel-worker.timer
+sudo stat -c '%U:%G:%a %n' /usr/local/sbin/spanel-ops /etc/sudoers.d/spanel-ops /etc/spanel/database-secrets.key /var/lib/spanel/secrets
 curl -sS -o /dev/null -w 'Login HTTP status: %{http_code}\n' http://127.0.0.1/login.php
 ```
 
@@ -104,6 +107,8 @@ sudo journalctl -u nginx -n 100 --no-pager
 PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
 sudo journalctl -u "php${PHP_VERSION}-fpm" -n 100 --no-pager
 sudo journalctl -u mariadb -n 100 --no-pager
+sudo journalctl -u spanel-worker.service -n 100 --no-pager
+sudo journalctl -u spanel-worker.timer -n 100 --no-pager
 ```
 
 ## Not yet acceptance-tested
