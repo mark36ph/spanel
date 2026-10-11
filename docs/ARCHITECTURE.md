@@ -27,7 +27,7 @@ No step may build a shell command by concatenating browser input. Domain names, 
 
 ## Target data model
 
-The panel database should represent the following relationships. The initial schema is a starter and must evolve through versioned migrations rather than destructive edits on a live install.
+The agreed target schema, table responsibilities, constraints, DNS approach and legacy migration path are specified in `docs/DATABASE-DESIGN.md`. The initial schema is a starter and must evolve through versioned migrations rather than destructive edits on a live install.
 
 - **Administrators:** identities, password hashes, active state and last login.
 - **Servers:** stable server ID, display name, hostname, environment, health/maintenance state and capability/version information. Secrets and private keys live in restricted local configuration, not in ordinary metadata rows.
