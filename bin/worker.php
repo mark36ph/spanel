@@ -158,13 +158,18 @@ try {
 
         // Treat the helper response as untrusted input. Do not update panel metadata
         // unless every returned field matches the requested operation.
+        $actualPhpVersion = $response['php_version'] ?? null;
+        $requestedPhpVersion = $payload['php_version_requested'];
+        $phpVersionMatches = $requestedPhpVersion === null
+            ? in_array($actualPhpVersion, ['8.2', '8.3'], true)
+            : $actualPhpVersion === $requestedPhpVersion;
         if (($response['website_id'] ?? null) !== $websiteId
             || ($response['domain'] ?? null) !== $domain
             || !array_key_exists('database_created', $response)
             || !is_bool($response['database_created'])
             || $response['database_created'] !== $payload['create_database_requested']
             || !array_key_exists('php_version', $response)
-            || $response['php_version'] !== $payload['php_version_requested']) {
+            || !$phpVersionMatches) {
             throw new RuntimeException('Restricted operations helper returned a mismatched result.');
         }
 
@@ -175,7 +180,7 @@ try {
         );
         $updateWebsite->execute([
             'document_root' => '/var/www/spanel/sites/' . (int)$job['website_id'] . '/public',
-            'php_version' => $response['php_version'] ?? $payload['php_version_requested'],
+            'php_version' => $actualPhpVersion,
             'id' => (int)$job['website_id'],
             'server_id' => (int)$job['server_id'],
         ]);
