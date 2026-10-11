@@ -58,7 +58,18 @@ On the Windows host, open `http://127.0.0.1:8081`.
 - [ ] Confirm the operation is auditable and visible on the Operations page.
 - [ ] **Do not expect a live website yet.** The privileged `spanel-ops` helper is intentionally missing; the worker should fail closed instead of making server changes. Do not repeatedly retry the same job.
 
-## 6. Record findings
+## 6. Verify the read-only operations service (after building it in the VM)
+
+- [ ] Build `operations-service` with the Go compiler; do not build or enable any write-capable service.
+- [ ] Install the service and socket units using `operations-service/README.md`; confirm the socket is `root:spanel` mode `0660`.
+- [ ] Confirm the daemon runs with a dynamic unprivileged identity and does not run as root.
+- [ ] Send a valid `website.preflight` request from the panel account and confirm the returned facts are well-formed.
+- [ ] Send malformed JSON, extra fields, an oversized frame, and an unsupported operation; confirm each is rejected without changing server state.
+- [ ] Confirm `website.provision` returns `operation_not_enabled` and does not create users, directories, configs, databases, or reload services.
+- [ ] Confirm the preflight clearly reports Nginx validation and DNS as unknown, and does not confuse a listening MariaDB port with verified credentials/permissions.
+- [ ] Review service logs and confirm they contain no secrets.
+
+## 7. Record findings
 
 For each failure, capture the exact command, output, page URL and relevant log excerpt. Avoid sharing passwords or the contents of `config/config.local.php`.
 
