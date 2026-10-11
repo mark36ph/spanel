@@ -15,6 +15,7 @@ Use this checklist only on a **disposable private Ubuntu Server 24.04 LTS VM**, 
 - [ ] Confirm the installer builds and installs the root-owned `/usr/local/sbin/spanel-ops` and `/usr/local/sbin/spanel-pma-credential-broker` helpers and validates `/etc/sudoers.d/spanel-ops`.
 - [ ] Confirm phpMyAdmin is installed without Apache and uses a dedicated `spanel-pma` PHP-FPM pool/socket, not the SPanel `spanel` pool.
 - [ ] Confirm `/var/lib/spanel/phpmyadmin-sessions` is `root:spanel-pma` mode `0770`, and the `spanel` account cannot list/read it.
+- [ ] Confirm `/etc/phpmyadmin/conf.d/99-spanel.php` is readable by `spanel-pma` but not by `spanel`; the phpMyAdmin service account must not be able to read `/opt/spanel/config/config.local.php`.
 - [ ] Confirm `/etc/spanel/database-secrets.key` is `root:root` mode `0600`, and `/var/lib/spanel/secrets` is `root:root` mode `0700`.
 - [ ] Confirm `spanel-worker.timer` is enabled and active; its oneshot worker runs as non-root `spanel`.
 - [ ] Confirm the installer finishes its HTTP smoke test and read-only doctor check without errors.
