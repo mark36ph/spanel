@@ -81,9 +81,7 @@ The installer creates the key and secret directory, builds/installs the helper,
 validates the exact sudoers rule, and enables the queue timer. The PHP worker
 records database metadata only after the helper response matches the request.
 These changes are implemented in code but have not been built or VM-tested.
-The encrypted secret store is not yet connected to a credential broker or
-phpMyAdmin sign-on adapter; do not expose passwords through the panel UI as a
-temporary workaround.
+The installer now configures phpMyAdmin's documented signon authentication, an isolated `spanel-pma` PHP-FPM pool, a root-owned credential broker and a separate signon session directory that the panel account cannot read. The broker consumes a one-time handoff, validates admin/database/server ownership, decrypts the credential only in the privileged process and writes it to a short-lived phpMyAdmin signon session. It returns only the session ID and database name. This is implemented in code but still requires VM verification; never expose passwords through the panel UI.
 
 ### Migration B — Website database metadata and ownership
 
