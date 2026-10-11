@@ -56,6 +56,8 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Give each website its own overview and contextual sidebar.
 - [x] List primary domains and add aliases/subdomains with type validation. [ ] Add domain editing/removal, DNS preflight and actual web-server configuration.
 - [ ] Create/manage website databases and least-privilege database users during and after website creation.
+- [x] Add strict reusable DNS-domain normalization and CI tests; runtime verification remains outstanding.
+- [x] Add additive metadata and one-time phpMyAdmin handoff-token schema plus a hash-only token storage service. [ ] Add integration tests and verify replay/expiry protection in the Ubuntu VM.
 - [ ] Install one phpMyAdmin instance per hosting server and add a per-database **Open phpMyAdmin** link that logs in as the correct website database user and selects that database using a short-lived, single-use secure handoff; test cross-website isolation.
 - [ ] Add cron jobs with validation and audit logs.
 - [ ] Add file manager with strict path containment and permission checks.
