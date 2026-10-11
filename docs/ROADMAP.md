@@ -40,7 +40,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Support adding more servers later without changing the website model.
 
 ## Stage 4 — Safe website provisioning
-- [x] Add the initial `operation_jobs` table migration for queued/running/succeeded/failed/rollback-required/cancelled work. [ ] Implement and test the worker and restricted typed operations.
+- [x] Add the initial `operation_jobs` table migration for queued/running/succeeded/failed/rollback-required/cancelled work. [x] Add an allowlisted `OperationQueue` service and CI validation tests for the website provisioning payload. [ ] Implement and test the worker and restricted typed operations.
 - [ ] Build a restricted local operations service; never expose arbitrary shell execution to PHP.
 - [ ] Validate domains, paths, PHP versions and generated resource names; include DNS preflight checks.
 - [ ] Create a dedicated Linux user and PHP-FPM pool per website.
@@ -51,7 +51,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 
 ## Stage 5 — Per-website management
 - [ ] Give each website its own overview and contextual sidebar.
-- [ ] Manage primary domains, aliases and subdomains.
+- [x] List primary domains and add aliases/subdomains with type validation. [ ] Add domain editing/removal, DNS preflight and actual web-server configuration.
 - [ ] Create/manage website databases and least-privilege database users during and after website creation.
 - [ ] Install one phpMyAdmin instance per hosting server and add a per-database **Open phpMyAdmin** link that logs in as the correct website database user and selects that database using a short-lived, single-use secure handoff; test cross-website isolation.
 - [ ] Add cron jobs with validation and audit logs.
