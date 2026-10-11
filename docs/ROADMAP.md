@@ -88,7 +88,8 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Test failed updates, migration recovery and restore in a disposable VM snapshot.
 
 ## Stage 8 — Security and production readiness
-- [x] Add baseline response headers (MIME sniffing, clickjacking, referrer policy, browser permissions, private no-store caching, and HTTPS-only HSTS). [ ] Add rate limiting, review secure-cookie behavior behind proxies, MFA and dependency review.
+- [x] Add baseline response headers (MIME sniffing, clickjacking, referrer policy, browser permissions, private no-store caching, and HTTPS-only HSTS).
+- [x] Expire inactive administrator sessions after 30 minutes and rotate session IDs periodically. [ ] Add login rate limiting, review secure-cookie behavior behind proxies, MFA and dependency review.
 - [ ] Review file permissions, service privileges, secrets handling and cross-site isolation.
 - [ ] Test website isolation and the privileged service's input validation.
 - [ ] Test fresh install, reinstall, upgrade, failed upgrade, backup restore and server recovery.
