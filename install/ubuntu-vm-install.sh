@@ -48,6 +48,8 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends phpmya
 PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
 PHP_VERSION_ID="$(php -r 'echo PHP_VERSION_ID;')"
 [[ "$PHP_VERSION_ID" -ge 80200 ]] || fail "PHP 8.2 or newer is required; detected $(php -v | head -n 1)."
+php -r 'exit(function_exists("posix_geteuid") && extension_loaded("pdo_mysql") && extension_loaded("openssl") ? 0 : 1);' \
+    || fail "PHP CLI must provide POSIX, PDO MySQL and OpenSSL for the restricted credential broker."
 [[ -S "/run/php/php${PHP_VERSION}-fpm.sock" || -e "/lib/systemd/system/php${PHP_VERSION}-fpm.service" ]] || fail "Could not locate the PHP-FPM service/socket for PHP $PHP_VERSION."
 readonly PHP_FPM_POOL="/etc/php/${PHP_VERSION}/fpm/pool.d/spanel.conf"
 readonly PHP_PMA_FPM_POOL="/etc/php/${PHP_VERSION}/fpm/pool.d/spanel-pma.conf"
