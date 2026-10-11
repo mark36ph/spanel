@@ -1,55 +1,99 @@
-# SPanel roadmap
+# SPanel Roadmap
 
-This roadmap is the source of truth for the build. The initial target is one Ubuntu Server VM, but the architecture must support adding more websites and additional servers later.
+This is the source of truth for SPanel progress. All changes go directly to `main` unless the user explicitly requests otherwise.
 
-## Stage 1 — Secure foundation
+## Stage 0 — Design and preparation
+- [x] Define project goals: custom, no paid cPanel/Plesk dependency.
+- [x] Plan a multi-server architecture while starting with one Ubuntu VM.
+- [x] Document the command-line installer and safe GitHub update workflow.
+- [x] Define the security boundary: PHP-FPM is unprivileged; privileged operations use a narrow allowlist.
+- [ ] Review and finalise the database model before provisioning real sites.
+- [ ] Finalise the panel navigation and website creation flow.
+
+## Stage 1 — Local development foundation
 - [x] PHP application skeleton, administrator login, CSRF/session protections, dashboard and website inventory.
-- [x] MariaDB starter schema and audit-event table.
-- [x] Local Ubuntu VM development notes.
-- [ ] Run the application in the Ubuntu VM and verify PHP/database behaviour.
-- [ ] Hide administrator password input in the CLI setup flow and validate all setup paths.
+- [x] Initial MariaDB schema and audit-event table.
+- [x] Ubuntu VM setup notes.
+- [ ] Install VirtualBox and Ubuntu Server on the Windows PC.
+- [ ] Run the panel in the VM and verify PHP syntax, login, sessions, database connection and error handling.
+- [ ] Fix CLI administrator creation so password input is hidden.
+- [ ] Add basic automated checks and a documented test checklist.
 
-## Stage 2 — Installation and update lifecycle
-- [ ] Provide a repeatable command-line installer for a fresh Ubuntu VM or VPS.
-- [ ] Installer checks supported Ubuntu/PHP versions, required privileges, disk space and dependencies before changing the system.
-- [ ] Install/configure the panel, database, PHP-FPM and Nginx; create a least-privilege database user; generate local configuration; initialise/migrate the schema; create the first administrator securely.
-- [ ] Make installation safe to re-run: detect existing installs, preserve local configuration/data, and stop rather than overwrite unexpectedly.
-- [ ] Add an in-panel Updates page/button that checks for available SPanel releases and shows the version/change summary before applying an update.
-- [ ] Run updates through a restricted root-owned updater/service, never by giving the PHP web process root or arbitrary shell access.
-- [ ] Back up code/configuration/database before updates; use a controlled release/tag or approved branch, maintenance lock, schema migrations, health check, audit log and rollback path.
-- [ ] Keep GitHub credentials out of the web application and repository. Prefer a read-only deploy key for the private repository or public, verifiable release artifacts.
-- [ ] Document manual CLI update and recovery commands.
+## Stage 2 — Repeatable CLI installation
+- [ ] Build a reviewed installer script for a clean Ubuntu VM or VPS.
+- [ ] Preflight checks: supported OS, privileges, dependencies, network and disk space.
+- [ ] Install and configure PHP-FPM, Nginx and MariaDB as appropriate.
+- [ ] Create restricted panel account, local configuration and least-privilege DB account.
+- [ ] Initialise the schema through versioned migrations.
+- [ ] Create the first administrator with hidden password entry.
+- [ ] Configure Nginx to expose only the public directory and validate config before reload.
+- [ ] Make reinstall safe: preserve existing configuration/data and stop before destructive actions.
+- [ ] Document install, repair, backup and uninstall/recovery procedures.
 
-## Stage 3 — Multi-server and website provisioning
-- [ ] Add server inventory with one local server created during installation.
-- [ ] Associate every website with a hosting server; no hard-coded two-site limit.
-- [ ] Keep server operations behind a narrow, authenticated, allowlisted service/API.
-- [ ] Provision each website with a dedicated Linux account, PHP-FPM pool, isolated document root, Nginx configuration, validation and rollback.
-- [ ] Support adding another server later without redesigning website records or the UI.
+## Stage 3 — Core data model and server inventory
+- [ ] Add versioned migrations for servers, websites, multiple domains and website-owned resources.
+- [ ] Register the initial VM/VPS as a hosting server.
+- [ ] Track server health, maintenance state, capabilities and panel/agent version.
+- [ ] Build server overview and website inventory filters.
+- [ ] Support adding more servers later without changing the website model.
 
-## Stage 4 — Per-website management
-- [ ] Website-specific sidebar and overview.
-- [ ] Domain/subdomain and DNS guidance.
-- [ ] Database and database-user management.
-- [ ] Cron jobs, logs, storage/resource usage and file manager.
-- [ ] GitHub deployment and deployment history.
+## Stage 4 — Safe website provisioning
+- [ ] Build a job queue/status model for long-running operations.
+- [ ] Build a restricted local operations service; never expose arbitrary shell execution to PHP.
+- [ ] Validate domains, paths, PHP versions and generated resource names.
+- [ ] Create a dedicated Linux user and PHP-FPM pool per website.
+- [ ] Create an isolated document root and safe permissions.
+- [ ] Generate Nginx config from fixed templates, test it, enable it and roll back on failure.
+- [ ] Add website creation, status, suspend/enable and safe removal flows.
+- [ ] Require confirmation and a backup/retention decision before destructive actions.
 
-## Stage 5 — Hosting services
-- [ ] SSL issuance/renewal and expiry alerts.
-- [ ] Backups, retention policy and tested restores.
-- [ ] Email accounts and delivery/security configuration.
-- [ ] Monitoring, alerts and service health.
+## Stage 5 — Per-website management
+- [ ] Give each website its own overview and contextual sidebar.
+- [ ] Manage primary domains, aliases and subdomains.
+- [ ] Manage website databases and least-privilege database users.
+- [ ] Add cron jobs with validation and audit logs.
+- [ ] Add file manager with strict path containment and permission checks.
+- [ ] Add logs, disk usage and resource summaries.
+- [ ] Add GitHub deployment with deployment history and rollback.
 
-## Stage 6 — Production hardening and migration
-- [ ] Security review, rate limiting, MFA, secure cookies/headers and dependency review.
-- [ ] Test installation, upgrades, rollback, backup restore and server failure scenarios in the VM.
-- [ ] Rehearse moving Projectabe and FactBurstQuiz to the VPS, verify them, and only then schedule production cutover.
-- [ ] Document recovery and server replacement procedures.
+## Stage 6 — Hosting services
+- [ ] Issue and renew SSL certificates; show expiry and errors.
+- [ ] Back up panel metadata, website files and website databases with retention settings.
+- [ ] Test restores, not just backup creation.
+- [ ] Add email accounts only after reviewing deliverability, spam prevention, SPF, DKIM, DMARC and abuse controls.
+- [ ] Add health monitoring, service status, alerts and audit log views.
 
-## Design constraints
-- Start with one server but model multiple servers from the beginning.
-- A website belongs to one hosting server and owns its related resources.
-- Never execute user-supplied shell commands or let PHP run as root.
-- Keep panel releases separate from customer website files and configuration.
-- Do not run unreviewed code from an arbitrary GitHub branch automatically on a production VPS.
-- No production deployment until the VM test checklist passes.
+## Stage 7 — Panel updates from GitHub
+- [ ] Add installed-version and available-version display.
+- [ ] Publish approved releases/tags and release notes.
+- [ ] Add an explicit Update button with preflight results and confirmation.
+- [ ] Keep GitHub access credentials outside the web app; use a narrowly scoped read-only credential where required.
+- [ ] Back up code/configuration/database and acquire an update lock.
+- [ ] Stage releases separately, verify integrity, run checks and apply migrations.
+- [ ] Switch releases atomically and run health checks.
+- [ ] Roll back code and provide recovery steps if checks fail.
+- [ ] Audit every update attempt and result.
+- [ ] Test failed updates, migration recovery and restore in a disposable VM snapshot.
+
+## Stage 8 — Security and production readiness
+- [ ] Add rate limiting, security headers, secure cookies, MFA and dependency review.
+- [ ] Review file permissions, service privileges, secrets handling and cross-site isolation.
+- [ ] Test website isolation and the privileged service's input validation.
+- [ ] Test fresh install, reinstall, upgrade, failed upgrade, backup restore and server recovery.
+- [ ] Document routine maintenance and disaster recovery.
+
+## Stage 9 — Move live websites to the VPS
+- [ ] Confirm VPS requirements and supported Ubuntu version.
+- [ ] Install SPanel on the VPS using the same CLI installer.
+- [ ] Rehearse migration of Projectabe and FactBurstQuiz.
+- [ ] Verify files, databases, domains, SSL, email and cron jobs.
+- [ ] Test rollback and downtime plan before DNS changes.
+- [ ] Cut over only after verification and retain recoverable backups.
+
+## Key design rules
+- No hard-coded website limit; every website belongs to a hosting server.
+- Keep panel metadata separate from hosted website data.
+- Each website gets its own Linux identity and PHP-FPM pool.
+- Never run the web application as root or execute browser-supplied shell commands.
+- Never deploy arbitrary `main` commits automatically to the production VPS; use approved releases.
+- Do not mark work complete until it has been tested in the VM.
