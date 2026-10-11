@@ -65,3 +65,17 @@ jobs:
           fi
       - name: Run operation recovery validation tests
         run: php tests/operation_recovery_validation.php
+
+  operations-service:
+    name: Operations service validation (manual only)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Run operations service tests
+        working-directory: operations-service
+        run: go test ./...
