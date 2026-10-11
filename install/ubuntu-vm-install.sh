@@ -52,11 +52,11 @@ systemctl enable --now mariadb
 DB_PASSWORD="$(openssl rand -hex 32)"
 # Password is generated as hex so it is safe in the quoted SQL literal below.
 mariadb <<SQL
-CREATE DATABASE IF NOT EXISTS `$DB_NAME` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS $DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD';
 ALTER USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD';
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES
-  ON `$DB_NAME`.* TO '$DB_USER'@'localhost';
+  ON $DB_NAME.* TO '$DB_USER'@'localhost';
 FLUSH PRIVILEGES;
 SQL
 
@@ -74,6 +74,7 @@ sudo -u "$APP_USER" php "$APP_DIR/bin/migrate.php"
 
 info "Registering this VM as the local SPanel server"
 HOSTNAME_VALUE="$(hostname -f 2>/dev/null || hostname)"
+[[ "$HOSTNAME_VALUE" =~ ^[A-Za-z0-9.-]{1,253}$ ]] || fail "The VM hostname contains unsupported characters: $HOSTNAME_VALUE"
 mariadb "$DB_NAME" <<SQL
 INSERT INTO servers (name, hostname, environment, status, is_local)
 VALUES ('Local Ubuntu VM', '$HOSTNAME_VALUE', 'development', 'online', 1)
