@@ -23,6 +23,8 @@ source /etc/os-release
 [[ ! -e "$APP_DIR" ]] || fail "$APP_DIR already exists. This installer refuses to overwrite an existing install or its configuration."
 [[ ! -e "/etc/spanel" && ! -e "/var/lib/spanel" ]] || fail "SPanel secret-store paths already exist. Inspect them first and use a clean disposable VM."
 [[ ! -e "$NGINX_SITE" && ! -e "$NGINX_LINK" ]] || fail "An SPanel Nginx site already exists; inspect it before proceeding."
+[[ ! -e "/usr/local/sbin/spanel-ops" && ! -e "/etc/sudoers.d/spanel-ops" ]] || fail "A SPanel operations helper or sudoers rule already exists; inspect it before proceeding."
+[[ ! -e "/etc/systemd/system/spanel-worker.service" && ! -e "/etc/systemd/system/spanel-worker.timer" ]] || fail "A SPanel worker unit already exists; inspect it before proceeding."
 command -v apt-get >/dev/null 2>&1 || fail "apt-get is required."
 command -v systemctl >/dev/null 2>&1 || fail "systemd is required."
 command -v openssl >/dev/null 2>&1 || fail "openssl is required to generate a database password."
