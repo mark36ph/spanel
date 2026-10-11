@@ -12,6 +12,9 @@ Use this checklist only on a **disposable private Ubuntu Server 24.04 LTS VM**, 
 - [ ] Confirm `/etc/php/<version>/fpm/pool.d/spanel.conf` configures `user = spanel`, `group = www-data`, and `/run/php/spanel.sock`; Nginx uses that socket.
 - [ ] Confirm PHP-FPM workers for the `spanel` pool run as the non-root `spanel` user; the normal PHP-FPM master process may remain root as required by systemd.
 - [ ] Confirm the installer creates the panel DB/configuration, applies migrations, registers the local server, configures Nginx/PHP-FPM, and prompts for the administrator.
+- [ ] Confirm the installer builds and installs the root-owned `/usr/local/sbin/spanel-ops` helper and validates `/etc/sudoers.d/spanel-ops`.
+- [ ] Confirm `/etc/spanel/database-secrets.key` is `root:root` mode `0600`, and `/var/lib/spanel/secrets` is `root:root` mode `0700`.
+- [ ] Confirm `spanel-worker.timer` is enabled and active; its oneshot worker runs as non-root `spanel`.
 - [ ] Confirm the installer finishes its HTTP smoke test and read-only doctor check without errors.
 - [ ] Confirm the installer rejects an unreplaced `CHANGE_ME` DB password or incorrect generated base URL.
 - [ ] Confirm `/config/config.local.php`, `/config/config.example.php`, `/database/schema.sql` and `/bin/doctor.php` do not return HTTP `200`.
@@ -56,19 +59,27 @@ On the Windows host, open `http://127.0.0.1:8081`.
 - [ ] Open a website and confirm its recent operation history matches the Operations page.
 - [ ] Confirm none of these screens implies that a queued job has changed the server.
 
-## 5. Test the website queue (metadata only)
+## 5. Test actual website provisioning
 
-- [ ] Create one disposable test website using a reserved test domain such as `vm-test.example.test`.
-- [ ] Confirm a website record and a `website.provision` operation appear.
-- [ ] Confirm the operation is auditable and visible on the Operations page.
-- [ ] Before enabling the helper, confirm a queued job fails closed and no host resources are changed.
-- [ ] Build/install the initial helper only by following `operations-service/PROVISIONING.md`; install the exact sudoers rule and validate it with `visudo -cf`.
-- [ ] Create a disposable test website with database creation disabled. Confirm the worker creates its Linux user, isolated document root, PHP-FPM pool and Nginx site, then verify the URL from the VM.
-- [ ] Confirm database-enabled requests are rejected and no database/user is created; database provisioning is not implemented in this first helper.
-- [ ] Test invalid domains (including single-label names), unsupported PHP versions, null/wrongly typed booleans, duplicate JSON keys, trailing JSON values, pre-existing usernames/paths, PHP-FPM config failure, Nginx config failure and reload failure.
-- [ ] Simulate a pre-existing Nginx symlink appearing after initial collision checks; confirm rollback only removes a link created by this invocation and never removes the competing link.
-- [ ] Record leftovers and confirm rollback does not remove pre-existing resources.
-- [ ] Do not retry a failed/rollback-required job before manually reconciling system state.
+- [ ] Create one disposable test website using a reserved test domain such as `vm-test.example.test`. This domain is for local Host-header testing; no public DNS record is required.
+- [ ] Tick **Create a website database** for one test website.
+- [ ] Confirm the job appears in Operations and the `spanel-worker.timer` processes it within about a minute.
+- [ ] Confirm the job reaches `succeeded`, the website status becomes active, and the primary domain status becomes active.
+- [ ] Confirm the site user `spw<ID>` has a non-login shell and is not shared with another website.
+- [ ] Confirm `/var/www/spanel/sites/<ID>/public/index.html` exists and is owned by the site user with Nginx-readable group permissions.
+- [ ] From the VM, run `curl -sS -H 'Host: vm-test.example.test' http://127.0.0.1/` and confirm the response says **SPanel site ready** and includes the selected domain.
+- [ ] Confirm the matching PHP-FPM pool and Nginx site exist, `php-fpm -t` and `nginx -t` pass, and only the expected site is enabled.
+- [ ] Confirm the database `spw_<ID>` and account `spu_<ID>@localhost` exist when the checkbox was selected.
+- [ ] Verify the account has grants only on its own database. Confirm it has no global grants and no `GRANT OPTION`.
+- [ ] Confirm `website_databases` contains the database name/user, `active` status and non-secret `website-db:<ID>` reference, but no password.
+- [ ] Confirm the secret file exists at `/var/lib/spanel/secrets/website-db-<ID>.enc`, is root-owned mode `0600`, and the `spanel` account cannot read the file or key.
+- [ ] Do not print the key or encrypted secret contents in logs or share them.
+- [ ] Create a second disposable website and verify its Linux user, PHP-FPM pool, document root, database and database account are distinct.
+- [ ] Test collision handling by requesting a duplicate domain/resource/database ID and confirm existing resources are never overwritten or deleted.
+- [ ] Test invalid domains (including single-label names), unsupported PHP versions, null/wrongly typed booleans, duplicate JSON keys, trailing JSON values, pre-existing usernames/paths, PHP-FPM config failure, Nginx config failure, MariaDB failure and reload failure.
+- [ ] Confirm failures are recorded as failed or `rollback_required` and never retried automatically. Inspect any partial state manually before another attempt.
+- [ ] Confirm direct phpMyAdmin sign-on remains unavailable until its supported authentication adapter and one-time broker are implemented; database passwords must not be shown in the panel as a workaround.
+
 
 ## 6. Verify the read-only operations service (after building it in the VM)
 
@@ -97,4 +108,4 @@ sudo journalctl -u mariadb -n 100 --no-pager
 
 ## Not yet acceptance-tested
 
-The initial helper now contains per-site Linux user/document-root/PHP-FPM/Nginx provisioning, but this is not yet VM-acceptance-tested. Hosted-site database creation, secure phpMyAdmin direct login, SSL, backups/restores and safe panel updates/rollback are not implemented end to end. Keep SPanel private and do not migrate Projectabe or FactBurstQuiz until those features and their isolation/recovery tests pass.
+The installer now builds and installs the restricted website/database helper, root-only encrypted credential store, and automatic queue timer. These features are implemented in code but not built or acceptance-tested in the Ubuntu VM yet. Direct phpMyAdmin sign-on, SSL, DNS automation, backups/restores and safe panel updates/rollback are not implemented end to end. Keep SPanel private and do not migrate Projectabe or FactBurstQuiz until installation, cross-site isolation, failure recovery and restore tests pass.
