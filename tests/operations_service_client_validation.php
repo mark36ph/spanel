@@ -3,6 +3,17 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/app/OperationsServiceClient.php';
 
+function clientMustReject(callable $fn, string $case): void
+{
+    try {
+        $fn();
+    } catch (InvalidArgumentException) {
+        return;
+    }
+    fwrite(STDERR, "Expected operations client validation failure: {$case}\n");
+    exit(1);
+}
+
 $request = [
     'operation' => 'website.preflight',
     'website_id' => 1,
@@ -12,16 +23,18 @@ $request = [
     'required_disk_bytes' => 1000000,
 ];
 
-$client = new OperationsServiceClient();
-try {
-    $client->preflight($request);
-    fwrite(STDERR, "Expected unavailable service to fail closed in the test environment.\n");
+if (OperationsServiceClient::SOCKET_URI !== 'unix:///run/spanel-ops/operations.sock') {
+    fwrite(STDERR, "Operations client socket must remain fixed to the local service.\n");
     exit(1);
-} catch (RuntimeException $e) {
-    if (!str_contains($e->getMessage(), 'service is unavailable')) {
-        fwrite(STDERR, "Unexpected service failure: " . $e->getMessage() . "\n");
-        exit(1);
-    }
 }
 
-fwrite(STDOUT, "Operations service client fails closed when its fixed socket is unavailable.\n");
+$client = new OperationsServiceClient();
+$invalid = $request;
+$invalid['command'] = 'not-allowed';
+clientMustReject(static fn() => $client->preflight($invalid), 'reject extra field before connecting');
+
+$invalid = $request;
+$invalid['website_id'] = '1';
+clientMustReject(static fn() => $client->preflight($invalid), 'reject wrong identifier type before connecting');
+
+fwrite(STDOUT, "Operations service client validates requests before using its fixed local socket.\n");
