@@ -43,6 +43,8 @@ jobs:
         run: php tests/provisioning_contract_validation.php
       - name: Run deterministic provisioning plan tests
         run: php tests/provisioning_plan_validation.php
+      - name: Run database provisioning plan tests
+        run: php tests/database_provisioning_plan_validation.php
       - name: Run provisioning preflight validation tests
         run: php tests/provisioning_preflight_validation.php
       - name: Run provisioning operations validation tests
