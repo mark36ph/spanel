@@ -1,0 +1,28 @@
+[Unit]
+Description=SPanel read-only operations service
+Requires=spanel-ops.socket
+After=spanel-ops.socket
+
+[Service]
+Type=simple
+ExecStart=/usr/local/lib/spanel-ops/spanel-ops
+DynamicUser=yes
+SupplementaryGroups=spanel
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+UMask=0077
+Restart=on-failure
+RestartSec=2s
+
+[Install]
+WantedBy=multi-user.target
