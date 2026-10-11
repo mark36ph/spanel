@@ -35,7 +35,9 @@ Then run, replacing the example password with a long unique password:
 ```sql
 CREATE DATABASE spanel CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'spanel_app'@'localhost' IDENTIFIED BY 'REPLACE_WITH_A_LONG_RANDOM_PASSWORD';
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX ON spanel.* TO 'spanel_app'@'localhost';
+CREATE USER 'spanel_app'@'127.0.0.1' IDENTIFIED BY 'REPLACE_WITH_A_LONG_RANDOM_PASSWORD';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON spanel.* TO 'spanel_app'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON spanel.* TO 'spanel_app'@'127.0.0.1';
 FLUSH PRIVILEGES;
 EXIT;
 ```
