@@ -52,6 +52,8 @@ type provisioner struct {
 	createdUser bool
 	createdRoot bool
 	createdPublic bool
+	createdIndex bool
+	indexPath string
 	rootPath string
 	publicPath string
 	username string
@@ -267,6 +269,9 @@ func (p *provisioner) run(r request) error {
 	if !regularExecutable("/usr/sbin/nginx") {
 		return errors.New("nginx unavailable")
 	}
+	if !regularExecutable("/usr/bin/curl") {
+		return errors.New("curl unavailable for local website verification")
+	}
 	if err := os.Mkdir(root, 0750); err != nil { return err }
 	p.createdRoot = true
 	if err := runCommand(10*time.Second, "/usr/sbin/useradd", "--system", "--user-group", "--home-dir", root, "--no-create-home", "--shell", "/usr/sbin/nologin", username); err != nil { return err }
@@ -280,6 +285,11 @@ func (p *provisioner) run(r request) error {
 	if err := os.Mkdir(public,0750); err != nil { return err }
 	p.createdPublic = true
 	if err := os.Chown(public, siteUID, wwwDataGID); err != nil { return err }
+	p.indexPath = filepath.Join(public, "index.html")
+	indexContent := fmt.Sprintf("<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>%s</title></head><body><main><h1>SPanel site ready</h1><p>Website <strong>%s</strong> has been provisioned successfully.</p><p>Website ID: %d</p><p>Replace this page with your website files when ready.</p></main></body></html>\n", r.Domain, r.Domain, r.WebsiteID)
+	if err := atomicWrite(p.indexPath, indexContent, 0640); err != nil { return err }
+	p.createdIndex = true
+	if err := os.Chown(p.indexPath, siteUID, wwwDataGID); err != nil { return err }
 
 	socket := "/run/php/"+pool+".sock"
 	poolConfig := fmt.Sprintf("[%s]\nuser = %s\ngroup = %s\nlisten = %s\nlisten.owner = www-data\nlisten.group = www-data\nlisten.mode = 0660\npm = ondemand\npm.max_children = 5\npm.process_idle_timeout = 10s\npm.max_requests = 500\nclear_env = yes\nsecurity.limit_extensions = .php\n", pool, username, username, socket)
@@ -301,6 +311,10 @@ func (p *provisioner) run(r request) error {
 	}
 	if err := runCommand(15*time.Second, "/bin/systemctl", "reload", "nginx"); err != nil { return err }
 	p.nginxReloaded = true
+	body, err := run(10*time.Second, "/usr/bin/curl", "--fail", "--silent", "--show-error", "--max-time", "5", "--header", "Host: "+r.Domain, "http://127.0.0.1/")
+	if err != nil || !bytes.Contains(body, []byte("SPanel site ready")) || !bytes.Contains(body, []byte(r.Domain)) {
+		return errors.New("local website health check did not match the expected site")
+	}
 	if r.CreateDatabase { if err := p.createWebsiteDatabase(r.WebsiteID); err != nil { return err } }
 	return nil
 }
@@ -331,6 +345,9 @@ func (p *provisioner) rollback() {
 	}
 	if p.poolInstalled || p.poolReloaded {
 		_ = runCommand(15*time.Second, "/bin/systemctl", "reload", "php"+p.phpVersion+"-fpm")
+	}
+	if p.createdIndex && p.indexPath != "" {
+		_ = os.Remove(p.indexPath)
 	}
 	if p.createdPublic {
 		_ = os.Remove(p.publicPath)
