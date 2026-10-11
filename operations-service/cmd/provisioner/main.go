@@ -54,6 +54,7 @@ type provisioner struct {
 	nginxLink string
 	poolInstalled bool
 	nginxInstalled bool
+	nginxLinkCreated bool
 	poolReloaded bool
 	nginxReloaded bool
 	phpVersion string
@@ -282,15 +283,22 @@ func (p *provisioner) run(r request) error {
 	if err := atomicWrite(p.nginxPath, nginxConfig, 0644); err != nil { return err }
 	p.nginxInstalled = true
 	if _, err := run(15*time.Second, "/usr/sbin/nginx", "-t"); err != nil { return err }
-	if err := os.Symlink(p.nginxPath,p.nginxLink); err != nil { return err }
-	if _, err := run(15*time.Second, "/usr/sbin/nginx", "-t"); err != nil { return err }
+	if err := os.Symlink(p.nginxPath, p.nginxLink); err != nil {
+		return err
+	}
+	p.nginxLinkCreated = true
+	if _, err := run(15*time.Second, "/usr/sbin/nginx", "-t"); err != nil {
+		return err
+	}
 	if err := runCommand(15*time.Second, "/bin/systemctl", "reload", "nginx"); err != nil { return err }
 	p.nginxReloaded = true
 	return nil
 }
 
 func (p *provisioner) rollback() {
-	if p.nginxLink != "" && isSymlink(p.nginxLink) { _ = os.Remove(p.nginxLink) }
+	if p.nginxLinkCreated {
+		_ = os.Remove(p.nginxLink)
+	}
 	if p.nginxInstalled { _ = os.Remove(p.nginxPath) }
 	if p.poolInstalled { _ = os.Remove(p.poolPath) }
 	if p.nginxInstalled || p.nginxReloaded {
