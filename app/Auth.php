@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/Database.php';
+require_once __DIR__ . '/LoginRateLimiter.php';
 
 final class Auth
 {
@@ -40,15 +41,25 @@ final class Auth
 
     public static function attempt(string $email, string $password): bool
     {
-        $stmt = Database::connection()->prepare(
+        $pdo = Database::connection();
+        $normalizedEmail = mb_strtolower(trim($email));
+        $remoteAddress = is_string($_SERVER['REMOTE_ADDR'] ?? null) ? $_SERVER['REMOTE_ADDR'] : '';
+        if (LoginRateLimiter::isBlocked($pdo, $normalizedEmail, $remoteAddress)) {
+            return false;
+        }
+
+        $stmt = $pdo->prepare(
             'SELECT id, password_hash FROM admins WHERE email = :email AND is_active = 1 LIMIT 1'
         );
-        $stmt->execute(['email' => mb_strtolower(trim($email))]);
+        $stmt->execute(['email' => $normalizedEmail]);
         $admin = $stmt->fetch();
 
         if (!$admin || !password_verify($password, $admin['password_hash'])) {
+            LoginRateLimiter::recordFailure($pdo, $normalizedEmail, $remoteAddress);
             return false;
         }
+
+        LoginRateLimiter::recordSuccess($pdo, $normalizedEmail);
 
         session_regenerate_id(true);
         $_SESSION['admin_id'] = (int)$admin['id'];
