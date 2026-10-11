@@ -1,14 +1,13 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/app/Security.php';
 $configPath = dirname(__DIR__) . '/config/config.local.php';
 if (!is_file($configPath)) {
     http_response_code(500);
     exit('SPanel configuration is unavailable.');
 }
 $config = require $configPath;
-Security::startSession($config);
+header('Cache-Control: no-store, private');
 header('Referrer-Policy: no-referrer');
 
 $securePmaCookie = str_starts_with((string)($config['app']['base_url'] ?? ''), 'https://');
