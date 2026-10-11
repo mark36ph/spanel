@@ -37,3 +37,5 @@ jobs:
         run: php tests/domain_name_validation.php
       - name: Run phpMyAdmin handoff input tests
         run: php tests/phpmyadmin_handoff_validation.php
+      - name: Run provisioning contract tests
+        run: php tests/provisioning_contract_validation.php
