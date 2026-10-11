@@ -60,7 +60,9 @@ On the Windows host, open `http://127.0.0.1:8081`.
 - [ ] Build/install the initial helper only by following `operations-service/PROVISIONING.md`; install the exact sudoers rule and validate it with `visudo -cf`.
 - [ ] Create a disposable test website with database creation disabled. Confirm the worker creates its Linux user, isolated document root, PHP-FPM pool and Nginx site, then verify the URL from the VM.
 - [ ] Confirm database-enabled requests are rejected and no database/user is created; database provisioning is not implemented in this first helper.
-- [ ] Test invalid domains, unsupported PHP versions, pre-existing usernames/paths, PHP-FPM config failure, Nginx config failure and reload failure. Record leftovers and confirm rollback does not remove pre-existing resources.
+- [ ] Test invalid domains (including single-label names), unsupported PHP versions, null/wrongly typed booleans, duplicate JSON keys, trailing JSON values, pre-existing usernames/paths, PHP-FPM config failure, Nginx config failure and reload failure.
+- [ ] Simulate a pre-existing Nginx symlink appearing after initial collision checks; confirm rollback only removes a link created by this invocation and never removes the competing link.
+- [ ] Record leftovers and confirm rollback does not remove pre-existing resources.
 - [ ] Do not retry a failed/rollback-required job before manually reconciling system state.
 
 ## 6. Verify the read-only operations service (after building it in the VM)
