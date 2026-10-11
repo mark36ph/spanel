@@ -46,14 +46,14 @@ server {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
 
+    location ~ /\.(?!well-known(?:/|$)).* {
+        deny all;
+    }
+
     location ~ \.php$ {
         try_files \$uri =404;
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:{$socket};
-    }
-
-    location ~ /.(?!well-known).* {
-        deny all;
     }
 }
 NGINX;
