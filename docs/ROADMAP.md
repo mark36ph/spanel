@@ -19,7 +19,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Run the panel in the VM and verify PHP syntax, login, sessions, database connection and error handling.
 - [ ] Fix CLI administrator creation so password input is hidden.
 - [ ] Add basic automated checks and a documented test checklist.
-- [ ] Implement the CLI-only, checksum-aware migration runner and test fresh installs, legacy upgrades, failure recovery and restore.
+- [x] Implement the initial CLI-only, advisory-lock-protected, checksum-aware migration runner with `--status` and `--dry-run`; VM/fresh-install/legacy-upgrade/failure-recovery/restore tests remain outstanding.
 
 ## Stage 2 — Repeatable CLI installation
 - [ ] Build a reviewed installer script for a clean Ubuntu VM or VPS.
@@ -33,7 +33,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Document install, repair, backup and uninstall/recovery procedures.
 
 ## Stage 3 — Core data model and server inventory
-- [ ] Implement and test versioned migrations for servers, websites, multiple domains and website-owned resources (design: `docs/DATABASE-DESIGN.md`).
+- [x] Add the first forward migration for `website_domains`, preserving `websites.domain` for compatibility and refusing invalid/normalized-colliding domains or websites without server assignments. [ ] Run and test the migration against fresh and representative legacy databases in the Ubuntu VM.
 - [ ] Register the initial VM/VPS as a hosting server.
 - [ ] Track server health, maintenance state, capabilities and panel/agent version.
 - [ ] Build server overview and website inventory filters.
