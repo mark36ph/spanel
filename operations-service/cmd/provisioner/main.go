@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"os/exec"
 	"os/user"
@@ -152,11 +151,11 @@ func (p *provisioner) run(r request) error {
 	p.createdRoot = true
 	if err := runCommand(10*time.Second, "/usr/sbin/useradd", "--system", "--home-dir", root, "--no-create-home", "--shell", "/usr/sbin/nologin", username); err != nil { return err }
 	p.createdUser = true
-	if err := os.Chown(root, uid(username), gid(username)); err != nil { return err }
+	if err := os.Chown(root, uid(username), gidGroup("www-data")); err != nil { return err }
 	public := p.publicPath
 	if err := os.Mkdir(public,0750); err != nil { return err }
 	p.createdPublic = true
-	if err := os.Chown(public, uid(username), gid(username)); err != nil { return err }
+	if err := os.Chown(public, uid(username), gidGroup("www-data")); err != nil { return err }
 
 	socket := "/run/php/"+pool+".sock"
 	poolConfig := fmt.Sprintf("[%s]\nuser = %s\ngroup = %s\nlisten = %s\nlisten.owner = www-data\nlisten.group = www-data\nlisten.mode = 0660\npm = ondemand\npm.max_children = 5\npm.process_idle_timeout = 10s\npm.max_requests = 500\nclear_env = yes\nsecurity.limit_extensions = .php\n", pool, username, username, socket)
@@ -195,6 +194,7 @@ func (p *provisioner) rollback() {
 
 func uid(username string) int { u,err:=user.Lookup(username); if err!=nil{return 0}; n,_:=strconv.Atoi(u.Uid); return n }
 func gid(username string) int { u,err:=user.Lookup(username); if err!=nil{return 0}; n,_:=strconv.Atoi(u.Gid); return n }
+func gidGroup(name string) int { g,err:=user.LookupGroup(name); if err!=nil{return 0}; n,_:=strconv.Atoi(g.Gid); return n }
 func regularExecutable(path string) bool { i,e:=os.Stat(path); return e==nil&&i.Mode().IsRegular()&&i.Mode().Perm()&0111!=0 }
 func secureRootDirectory(path string) bool {
 	i, err := os.Lstat(path)
