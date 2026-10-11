@@ -13,6 +13,7 @@ A custom hosting control panel for Projectabe, FactBurstQuiz, and future sites. 
 
 ## Project docs
 - [Architecture and lifecycle](docs/ARCHITECTURE.md)
+- [Website creation and DNS](docs/WEBSITE-CREATION-AND-DNS.md)
 - [Database design](docs/DATABASE-DESIGN.md)
 - [Database migrations and phpMyAdmin](docs/DATABASE-MIGRATIONS-AND-PHPMYADMIN.md)
 - [Secure one-click phpMyAdmin login](docs/PHPMYADMIN-DIRECT-LOGIN.md)
@@ -20,4 +21,4 @@ A custom hosting control panel for Projectabe, FactBurstQuiz, and future sites. 
 - [Local development setup](docs/DEVELOPMENT.md)
 - [Installer and updates design](docs/INSTALLER-AND-UPDATES.md)
 
-The installer, updater and website provisioning are not yet implemented. Keep the development panel private and do not migrate production sites until VM installation, update, rollback and restore tests pass.
+The repository now includes metadata-only server registration, website registration/domain management, a provisioning job queue and an operations status page. These do not yet configure Linux users, Nginx, PHP-FPM, DNS or databases. The installer, privileged worker, updater and secure phpMyAdmin sign-on are still outstanding. Keep the development panel private and do not migrate production sites until VM installation, update, rollback and restore tests pass.
