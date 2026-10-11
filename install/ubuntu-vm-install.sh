@@ -23,12 +23,13 @@ source /etc/os-release
 [[ ! -e "$APP_DIR" ]] || fail "$APP_DIR already exists. This installer refuses to overwrite an existing install or its configuration."
 [[ ! -e "/etc/spanel" && ! -e "/var/lib/spanel" ]] || fail "SPanel secret-store paths already exist. Inspect them first and use a clean disposable VM."
 [[ ! -e "$NGINX_SITE" && ! -e "$NGINX_LINK" ]] || fail "An SPanel Nginx site already exists; inspect it before proceeding."
-[[ ! -e "/usr/local/sbin/spanel-ops" && ! -e "/etc/sudoers.d/spanel-ops" ]] || fail "A SPanel operations helper or sudoers rule already exists; inspect it before proceeding."
+[[ ! -e "/usr/local/sbin/spanel-ops" && ! -e "/usr/local/sbin/spanel-pma-credential-broker" && ! -e "/etc/sudoers.d/spanel-ops" ]] || fail "A SPanel operations helper or sudoers rule already exists; inspect it before proceeding."
 [[ ! -e "/etc/systemd/system/spanel-worker.service" && ! -e "/etc/systemd/system/spanel-worker.timer" ]] || fail "A SPanel worker unit already exists; inspect it before proceeding."
 command -v apt-get >/dev/null 2>&1 || fail "apt-get is required."
 command -v systemctl >/dev/null 2>&1 || fail "systemd is required."
 command -v openssl >/dev/null 2>&1 || fail "openssl is required to generate a database password."
 command -v sudo >/dev/null 2>&1 || fail "sudo is required to run panel setup commands as the unprivileged service account."
+getent passwd spanel-pma >/dev/null && fail "The spanel-pma account already exists. Use a clean VM rather than adopting an unverified account."
 AVAILABLE_KB="$(df -Pk / | awk 'NR == 2 {print $4}')"
 [[ "$AVAILABLE_KB" =~ ^[0-9]+$ && "$AVAILABLE_KB" -ge 3000000 ]] || fail "At least 3 GB of free disk space is required."
 if command -v ss >/dev/null 2>&1 && ss -ltnH '( sport = :80 )' | grep -q .; then
@@ -38,20 +39,28 @@ fi
 info "Installing panel runtime packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y nginx mariadb-server php-fpm php-cli php-mysql php-mbstring php-xml php-curl php-intl git ca-certificates tar openssl curl golang-go
+apt-get install -y nginx mariadb-server php-fpm php-cli php-mysql php-mbstring php-xml php-curl php-intl git ca-certificates tar openssl curl golang-go debconf-utils
+printf 'phpmyadmin phpmyadmin/dbconfig-install boolean false\nphpmyadmin phpmyadmin/reconfigure-webserver multiselect\n' | debconf-set-selections
+DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends phpmyadmin
 
 PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
 PHP_VERSION_ID="$(php -r 'echo PHP_VERSION_ID;')"
 [[ "$PHP_VERSION_ID" -ge 80200 ]] || fail "PHP 8.2 or newer is required; detected $(php -v | head -n 1)."
 [[ -S "/run/php/php${PHP_VERSION}-fpm.sock" || -e "/lib/systemd/system/php${PHP_VERSION}-fpm.service" ]] || fail "Could not locate the PHP-FPM service/socket for PHP $PHP_VERSION."
 readonly PHP_FPM_POOL="/etc/php/${PHP_VERSION}/fpm/pool.d/spanel.conf"
+readonly PHP_PMA_FPM_POOL="/etc/php/${PHP_VERSION}/fpm/pool.d/spanel-pma.conf"
 [[ ! -e "$PHP_FPM_POOL" ]] || fail "A SPanel PHP-FPM pool already exists at $PHP_FPM_POOL; inspect it before proceeding."
+[[ ! -e "$PHP_PMA_FPM_POOL" ]] || fail "A SPanel phpMyAdmin PHP-FPM pool already exists at $PHP_PMA_FPM_POOL; inspect it before proceeding."
+[[ -f /etc/phpmyadmin/config.inc.php && -f /usr/share/phpmyadmin/index.php ]] || fail "The phpMyAdmin package did not install its expected files."
 
 info "Creating the dedicated, non-root panel account and application directory"
 if getent passwd "$APP_USER" >/dev/null; then
     fail "The '$APP_USER' account already exists. Inspect it first and use a clean VM; the installer will not adopt an unverified account."
 fi
 useradd --system --user-group --home-dir "$APP_DIR" --no-create-home --shell /usr/sbin/nologin "$APP_USER"
+useradd --system --user-group --home-dir /var/lib/spanel/phpmyadmin --no-create-home --shell /usr/sbin/nologin spanel-pma
+PMA_UID="$(id -u spanel-pma)"
+[[ "$PMA_UID" -gt 0 ]] || fail "The phpMyAdmin PHP-FPM account must not be root."
 APP_UID="$(id -u "$APP_USER")"
 APP_SHELL="$(getent passwd "$APP_USER" | cut -d: -f7)"
 [[ "$APP_UID" -gt 0 && "$APP_SHELL" == "/usr/sbin/nologin" ]] || fail "The dedicated panel account is not safely configured."
@@ -64,7 +73,9 @@ find "$APP_DIR" -type f -exec chmod 0640 {} +
 
 info "Preparing protected website database credential storage"
 install -d -o root -g root -m 0750 /etc/spanel
-install -d -o root -g root -m 0700 /var/lib/spanel /var/lib/spanel/secrets
+install -d -o root -g root -m 0711 /var/lib/spanel
+install -d -o root -g root -m 0700 /var/lib/spanel/secrets
+install -d -o root -g spanel-pma -m 0770 /var/lib/spanel/phpmyadmin-sessions
 (umask 077; openssl rand -hex 32 > /etc/spanel/database-secrets.key)
 chown root:root /etc/spanel/database-secrets.key
 chmod 0600 /etc/spanel/database-secrets.key
@@ -145,6 +156,8 @@ if ! visudo -cf /etc/sudoers.d/spanel-ops; then
 fi
 [[ "$(stat -c '%U:%G:%a' /usr/local/sbin/spanel-ops)" == "root:root:755" ]] || fail "Restricted helper ownership or permissions are unexpected."
 [[ "$(stat -c '%U:%G:%a' /var/lib/spanel/secrets)" == "root:root:700" ]] || fail "Database secret directory permissions are unexpected."
+install -o root -g root -m 0755 "$APP_DIR/install/helpers/spanel-pma-credential-broker.php" /usr/local/sbin/spanel-pma-credential-broker
+[[ "$(stat -c '%U:%G:%a' /usr/local/sbin/spanel-pma-credential-broker)" == "root:root:755" ]] || fail "phpMyAdmin credential broker ownership or permissions are unexpected."
 install -o root -g root -m 0644 "$APP_DIR/install/systemd/spanel-worker.service" /etc/systemd/system/spanel-worker.service
 install -o root -g root -m 0644 "$APP_DIR/install/systemd/spanel-worker.timer" /etc/systemd/system/spanel-worker.timer
 systemctl daemon-reload
