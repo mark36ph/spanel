@@ -374,7 +374,10 @@ printf 'HTTP login page returned successfully.\n'
 PMA_HTTP_STATUS="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' http://127.0.0.1/phpmyadmin/)" \
     || fail "Could not check the phpMyAdmin signon endpoint."
 [[ "$PMA_HTTP_STATUS" == "302" ]] || fail "phpMyAdmin did not redirect unauthenticated access to SPanel sign-in (HTTP $PMA_HTTP_STATUS)."
-printf 'phpMyAdmin signon endpoint returned the expected unauthenticated redirect.\n'
+AUTH_CHECK_HTTP_STATUS="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' http://127.0.0.1/phpmyadmin-auth-check.php)" \
+    || fail "Could not verify the internal phpMyAdmin authorization endpoint."
+[[ "$AUTH_CHECK_HTTP_STATUS" == "404" ]] || fail "The internal phpMyAdmin authorization endpoint is externally reachable (HTTP $AUTH_CHECK_HTTP_STATUS)."
+printf 'phpMyAdmin signon endpoint and internal authorization route passed their HTTP checks.\n'
 
 info "Enabling the queued provisioning worker"
 systemctl enable --now spanel-worker.timer
