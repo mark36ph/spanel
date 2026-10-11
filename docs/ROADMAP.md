@@ -64,7 +64,8 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 ## Stage 5 — Per-website management
 - [x] Give each website a management overview with recent operation history and contextual links. [ ] Add a dedicated contextual sidebar as website modules are implemented.
 - [x] List primary domains, add aliases/subdomains with type validation, and remove pending non-primary domain records with audit logging. [ ] Add domain editing, DNS preflight and actual web-server configuration.
-- [ ] Create/manage website databases and least-privilege database users during and after website creation. The first helper rejects database-enabled requests until credential handoff and grants are implemented.
+- [x] Add a data-only `DatabaseProvisioningPlan` that derives per-website database/user names, localhost-only account host, database-scoped grant target and a non-secret secret reference; add manual-check validation tests. Execution remains disabled.
+- [ ] Create/manage website databases and least-privilege database users during and after website creation. The first helper rejects database-enabled requests until the protected secret store, credential generation/rotation, grant application and recovery behavior are implemented and VM-tested.
 - [x] Add strict reusable DNS-domain normalization and CI tests; runtime verification remains outstanding.
 - [x] Add additive metadata and one-time phpMyAdmin handoff-token schema plus a hash-only token storage service. [ ] Add integration tests and verify replay/expiry protection in the Ubuntu VM.
 - [ ] Install one phpMyAdmin instance per hosting server and add a per-database **Open phpMyAdmin** link that logs in as the correct website database user and selects that database using a short-lived, single-use secure handoff; test cross-website isolation.
