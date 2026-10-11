@@ -56,7 +56,7 @@ function invokeOperationsHelper(array $request): array
         [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
-            2 => ['file', '/dev/null', 'w'],
+            2 => ['pipe', 'w'],
         ],
         $pipes,
         null,
@@ -88,10 +88,15 @@ function invokeOperationsHelper(array $request): array
         || strlen($stdout) > 16384) {
         proc_terminate($process, 9);
         fclose($pipes[1]);
+        if (isset($pipes[2]) && is_resource($pipes[2])) {
+            fclose($pipes[2]);
+        }
         proc_close($process);
         throw new RuntimeException('Restricted operations helper timed out or returned an oversized response.');
     }
     fclose($pipes[1]);
+    $stderr = stream_get_contents($pipes[2], 8193);
+    fclose($pipes[2]);
     $exitCode = proc_close($process);
 
     if (!is_string($stdout)) {
@@ -103,8 +108,11 @@ function invokeOperationsHelper(array $request): array
         throw new RuntimeException('Restricted operations helper returned an invalid response.');
     }
     if (!is_array($response) || ($response['ok'] ?? false) !== true || $exitCode !== 0) {
-        // Never trust privileged-process output as a user-facing error. It may
-        // contain paths, SQL details or other operational data.
+        // Privileged diagnostics are recorded only in the server-side PHP/system
+        // log. They are never included in the response shown to panel users.
+        if (is_string($stderr) && trim($stderr) !== '') {
+            error_log('SPanel operations helper diagnostic: ' . substr(trim($stderr), 0, 2000));
+        }
         throw new RuntimeException('Restricted operations helper rejected the request or failed; inspect protected server logs.');
     }
     return $response;
