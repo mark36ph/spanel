@@ -45,6 +45,10 @@ type provisioner struct {
 	createdUser bool
 	createdRoot bool
 	createdPublic bool
+	rootPath string
+	publicPath string
+	username string
+	websiteID int64
 	poolPath string
 	nginxPath string
 	nginxLink string
@@ -56,6 +60,7 @@ type provisioner struct {
 }
 
 func main() {
+	if len(os.Args) != 1 { fail("arguments_not_supported") }
 	input, err := io.ReadAll(io.LimitReader(os.Stdin, maxInput+1))
 	if err != nil || len(input) == 0 || len(input) > maxInput {
 		fail("invalid_input")
@@ -79,7 +84,7 @@ func main() {
 	if err != nil {
 		failFor(req, "php_runtime_unavailable")
 	}
-	p := &provisioner{phpVersion: version}
+	p := &provisioner{phpVersion: version, websiteID: req.WebsiteID, username: "spw" + strconv.FormatInt(req.WebsiteID, 10), rootPath: "/var/www/spanel/sites/" + strconv.FormatInt(req.WebsiteID, 10), publicPath: "/var/www/spanel/sites/" + strconv.FormatInt(req.WebsiteID, 10) + "/public"}
 	if err := p.run(req); err != nil {
 		p.rollback()
 		failFor(req, "provisioning_failed")
@@ -119,9 +124,9 @@ func choosePHP(requested *string) (string, error) {
 
 func (p *provisioner) run(r request) error {
 	id := strconv.FormatInt(r.WebsiteID, 10)
-	username := "spw"+id
+	username := p.username
 	pool := "spanel-site-"+id
-	root := "/var/www/spanel/sites/"+id
+	root := p.rootPath
 	p.poolPath = "/etc/php/"+p.phpVersion+"/fpm/pool.d/"+pool+".conf"
 	p.nginxPath = "/etc/nginx/sites-available/"+pool
 	p.nginxLink = "/etc/nginx/sites-enabled/"+pool
@@ -137,7 +142,7 @@ func (p *provisioner) run(r request) error {
 	if err := runCommand(10*time.Second, "/usr/sbin/useradd", "--system", "--home-dir", root, "--no-create-home", "--shell", "/usr/sbin/nologin", username); err != nil { return err }
 	p.createdUser = true
 	if err := os.Chown(root, uid(username), gid(username)); err != nil { return err }
-	public := filepath.Join(root,"public")
+	public := p.publicPath
 	if err := os.Mkdir(public,0750); err != nil { return err }
 	p.createdPublic = true
 	if err := os.Chown(public, uid(username), gid(username)); err != nil { return err }
@@ -164,23 +169,19 @@ func (p *provisioner) rollback() {
 	if p.nginxLink != "" && isSymlink(p.nginxLink) { _ = os.Remove(p.nginxLink) }
 	if p.nginxInstalled { _ = os.Remove(p.nginxPath) }
 	if p.poolInstalled { _ = os.Remove(p.poolPath) }
-	if p.nginxReloaded { _, _ = run(15*time.Second, "/usr/sbin/nginx", "-t"); _ = runCommand(15*time.Second, "/bin/systemctl", "reload", "nginx") }
-	if p.poolReloaded { _ = runCommand(15*time.Second, "/bin/systemctl", "reload", "php"+p.phpVersion+"-fpm") }
-	if p.createdPublic { _ = os.Remove(filepath.Join("/var/www/spanel/sites", strings.TrimPrefix(filepath.Dir(p.poolPath),"/etc/php/"+p.phpVersion+"/fpm/pool.d/spanel-site-"))) }
-	// Only remove paths/user created by this invocation, never pre-existing resources.
-	if p.createdRoot {
-		// The directory is intentionally left for manual recovery if non-empty.
-		// This avoids recursive deletion of content that may have appeared concurrently.
-		_ = os.Remove(p.createdRootPath())
+	if p.nginxInstalled || p.nginxReloaded {
+		if _, err := run(15*time.Second, "/usr/sbin/nginx", "-t"); err == nil {
+			_ = runCommand(15*time.Second, "/bin/systemctl", "reload", "nginx")
+		}
 	}
-	if p.createdUser { _ = runCommand(10*time.Second, "/usr/sbin/userdel", "spw"+p.websiteID()) }
+	if p.poolInstalled || p.poolReloaded {
+		_ = runCommand(15*time.Second, "/bin/systemctl", "reload", "php"+p.phpVersion+"-fpm")
+	}
+	if p.createdPublic { _ = os.Remove(p.publicPath) }
+	if p.createdUser { _ = runCommand(10*time.Second, "/usr/sbin/userdel", p.username) }
+	if p.createdRoot { _ = os.Remove(p.rootPath) }
 }
 
-func (p *provisioner) createdRootPath() string { return "/var/www/spanel/sites/"+p.websiteID() }
-func (p *provisioner) websiteID() string {
-	parts := strings.Split(filepath.Base(p.poolPath), "-")
-	return strings.TrimSuffix(parts[len(parts)-1], ".conf")
-}
 func uid(username string) int { u,err:=user.Lookup(username); if err!=nil{return 0}; n,_:=strconv.Atoi(u.Uid); return n }
 func gid(username string) int { u,err:=user.Lookup(username); if err!=nil{return 0}; n,_:=strconv.Atoi(u.Gid); return n }
 func regularExecutable(path string) bool { i,e:=os.Stat(path); return e==nil&&i.Mode().IsRegular()&&i.Mode().Perm()&0111!=0 }
