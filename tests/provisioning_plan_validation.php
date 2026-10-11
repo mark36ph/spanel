@@ -33,6 +33,10 @@ foreach ($expected as $key => $value) {
 }
 if (!str_contains($plan['nginx_config'], 'server_name example.com;')
     || !str_contains($plan['nginx_config'], 'try_files $uri $uri/ /index.php?$query_string;')
+    || !str_contains($plan['nginx_config'], 'location ~ /\\.(?!well-known(?:/|$)).* {')
+    || strpos($plan['nginx_config'], 'location ~ /\\.(?!well-known(?:/|$)).* {')
+        > strpos($plan['nginx_config'], 'location ~ \\.php$ {')
+    || !str_contains($plan['nginx_config'], 'deny all;')
     || !str_contains($plan['php_fpm_pool_config'], 'user = spw42')
     || !str_contains($plan['php_fpm_pool_config'], 'security.limit_extensions = .php')) {
     fwrite(STDERR, "Generated configuration is missing a required safe directive.\n");
