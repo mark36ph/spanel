@@ -87,6 +87,20 @@ chown -R root:www-data "$APP_DIR"
 find "$APP_DIR" -type d -exec chmod 0750 {} +
 find "$APP_DIR" -type f -exec chmod 0640 {} +
 
+info "Checking PHP syntax for the website and signon entry points"
+for php_file in \
+    app/Security.php \
+    app/PhpMyAdminHandoff.php \
+    public/site.php \
+    public/phpmyadmin-launch.php \
+    public/phpmyadmin-logout.php \
+    public/create-site.php \
+    bin/worker.php \
+    bin/doctor.php \
+    install/helpers/spanel-pma-credential-broker.php; do
+    php -l "$APP_DIR/$php_file" >/dev/null || fail "PHP syntax validation failed for $php_file."
+done
+
 info "Preparing protected website database credential storage"
 install -d -o root -g root -m 0750 /etc/spanel
 install -d -o root -g root -m 0711 /var/lib/spanel
