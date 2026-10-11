@@ -6,8 +6,9 @@ declare(strict_types=1);
  *
  * This class does not authenticate to phpMyAdmin and must not be treated as
  * the complete login integration. The controller must authenticate the admin,
- * authorize access to the selected database, and POST the returned token to a
- * same-origin launch endpoint. Never put the raw token in a URL or log it.
+ * authorize access to the selected database, and keep the returned raw token
+ * only in server-side session storage for the launch flow. Never pass it through
+ * the browser, place it in a URL, or log it.
  */
 final class PhpMyAdminHandoff
 {
