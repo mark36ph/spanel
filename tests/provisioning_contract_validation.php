@@ -90,4 +90,40 @@ expectContractFailure(static function () use ($request, $response): void {
     ProvisioningContract::validateResponse($bad, $request);
 }, 'extra response field');
 
+expectContractFailure(static function () use ($request): void {
+    $bad = $request;
+    $bad['operation'] = 'system.shell';
+    ProvisioningContract::validateRequest($bad);
+}, 'unsupported operation');
+
+expectContractFailure(static function () use ($request): void {
+    $bad = $request;
+    $bad['create_database'] = 'true';
+    ProvisioningContract::validateRequest($bad);
+}, 'string database flag');
+
+expectContractFailure(static function () use ($request): void {
+    $bad = $request;
+    $bad['domain'] = 'example.com/path';
+    ProvisioningContract::validateRequest($bad);
+}, 'domain containing a path');
+
+expectContractFailure(static function () use ($request, $response): void {
+    $bad = $response;
+    $bad['website_id'] = 43;
+    ProvisioningContract::validateResponse($bad, $request);
+}, 'wrong returned website ID');
+
+expectContractFailure(static function () use ($request, $response): void {
+    $bad = $response;
+    $bad['ok'] = false;
+    ProvisioningContract::validateResponse($bad, $request);
+}, 'helper did not confirm success');
+
+expectContractFailure(static function () use ($request, $response): void {
+    $bad = $response;
+    $bad['php_version'] = '8.2';
+    ProvisioningContract::validateResponse($bad, $request);
+}, 'selected PHP version differs from explicit request');
+
 fwrite(STDOUT, "Provisioning contract validation checks passed.\n");
