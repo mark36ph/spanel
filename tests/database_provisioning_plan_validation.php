@@ -17,7 +17,7 @@ expect($plan['database_name'] === 'spw_42', 'Database name is not deterministic.
 expect($plan['database_user'] === 'spu_42', 'Database username is not deterministic.');
 expect($plan['database_host'] === 'localhost', 'Database user host must be local-only.');
 expect($plan['grant_scope'] === 'spw_42.*', 'Grant scope must be limited to this database.');
-expect($plan['secret_ref'] === 'website-db:3:42', 'Secret reference is not stable and scoped.');
+expect($plan['secret_ref'] === 'website-db:42', 'Secret reference is not stable and scoped.');
 expect($plan['password_included'] === false, 'A password must never be present in the plan.');
 expect($plan['execution_enabled'] === false, 'The plan must not enable execution.');
 expect(!in_array('ALL PRIVILEGES', $plan['privileges'], true), 'Global privileges must not be granted.');
