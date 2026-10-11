@@ -53,6 +53,22 @@ Use VirtualBox NAT port forwarding from host port 8080 to guest port 8080, then 
 The current build contains authentication, dashboard and an inventory UI. It does not yet create operating-system users, Nginx sites, databases for hosted sites, mailboxes, SSL certificates or cron jobs. Those operations require a dedicated, narrowly scoped privileged service, strict input validation, audit events and rollback.
 
 
+## Recovering interrupted operations
+
+The worker deliberately does not retry an operation after it may have changed server resources. First run the read-only report:
+
+```bash
+php bin/reconcile-operations.php
+```
+
+To use a different stale threshold, pass `--minutes=30` (allowed range: 5–1440). Review the reported job IDs and inspect the host, directories, database users and Nginx/PHP-FPM state before changing anything. Only after review, explicitly mark those jobs as requiring manual recovery:
+
+```bash
+php bin/reconcile-operations.php --minutes=30 --apply
+```
+
+This command never retries or deletes resources. It changes stale `running` jobs to `rollback_required` so they cannot be mistaken for completed or safe-to-retry jobs. It processes at most 500 jobs per invocation.
+
 ## Database migrations
 
 Migrations are immutable PHP files under `database/migrations/` that return a callable receiving the PDO connection. The runner is CLI-only and uses a MariaDB advisory lock during apply operations.
