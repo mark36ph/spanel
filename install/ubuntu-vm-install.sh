@@ -25,6 +25,12 @@ source /etc/os-release
 command -v apt-get >/dev/null 2>&1 || fail "apt-get is required."
 command -v systemctl >/dev/null 2>&1 || fail "systemd is required."
 command -v openssl >/dev/null 2>&1 || fail "openssl is required to generate a database password."
+command -v sudo >/dev/null 2>&1 || fail "sudo is required to run panel setup commands as the unprivileged service account."
+AVAILABLE_KB="$(df -Pk / | awk 'NR == 2 {print $4}')"
+[[ "$AVAILABLE_KB" =~ ^[0-9]+$ && "$AVAILABLE_KB" -ge 3000000 ]] || fail "At least 3 GB of free disk space is required."
+if command -v ss >/dev/null 2>&1 && ss -ltnH '( sport = :80 )' | grep -q .; then
+    fail "TCP port 80 is already in use. Stop the existing web server or use a clean VM."
+fi
 
 info "Installing panel runtime packages"
 export DEBIAN_FRONTEND=noninteractive
@@ -73,8 +79,8 @@ mariadb "$DB_NAME" < "$APP_DIR/database/schema.sql"
 sudo -u "$APP_USER" php "$APP_DIR/bin/migrate.php"
 
 info "Registering this VM as the local SPanel server"
-HOSTNAME_VALUE="$(hostname -f 2>/dev/null || hostname)"
-[[ "$HOSTNAME_VALUE" =~ ^[A-Za-z0-9.-]{1,253}$ ]] || fail "The VM hostname contains unsupported characters: $HOSTNAME_VALUE"
+HOSTNAME_VALUE="$(hostname -f 2>/dev/null || hostname | tr -cd 'A-Za-z0-9.-' | cut -c1-253)"
+if [[ ! "$HOSTNAME_VALUE" =~ ^[A-Za-z0-9.-]{1,253}$ ]]; then HOSTNAME_VALUE="spanel-vm.local"; fi
 mariadb "$DB_NAME" <<SQL
 INSERT INTO servers (name, hostname, environment, status, is_local)
 VALUES ('Local Ubuntu VM', '$HOSTNAME_VALUE', 'development', 'online', 1)
