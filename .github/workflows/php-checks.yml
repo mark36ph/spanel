@@ -47,5 +47,7 @@ jobs:
         run: php tests/provisioning_preflight_validation.php
       - name: Run provisioning operations validation tests
         run: php tests/provisioning_operations_validation.php
+      - name: Run operations service protocol validation tests
+        run: php tests/operations_service_protocol_validation.php
       - name: Run operation recovery validation tests
         run: php tests/operation_recovery_validation.php

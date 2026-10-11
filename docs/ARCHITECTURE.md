@@ -48,6 +48,7 @@ Website-owned resources should have explicit ownership/foreign keys. Deleting a 
 - Nginx configuration is generated from fixed templates and validated before reload; updates use atomic writes and keep the last known-good configuration.
 - Long-running operations use job records with states such as queued, running, succeeded, failed and rollback-required. The UI polls job status rather than holding a web request open while system changes run.
 - The privileged service accepts a typed operation and validated fields, not a command string or arbitrary filesystem path. Requests are authenticated, locally restricted, rate-limited where applicable, and audit logged.
+- The data-only `OperationsServiceProtocol` defines bounded newline-delimited JSON framing and reuses strict provisioning contracts to reject malformed, oversized, extra-field, or identity-mismatched messages. It does not open sockets, launch processes, or perform privileged actions. A transport and the restricted service are not yet implemented.
 - Server credentials are not embedded in PHP, JavaScript, HTML, Git, or logs.
 
 ## Install and update lifecycle
