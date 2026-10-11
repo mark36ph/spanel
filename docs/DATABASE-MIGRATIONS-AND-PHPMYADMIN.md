@@ -75,6 +75,8 @@ Validation:
 
 ### Migration C — Background operation jobs
 
+Implemented as `database/migrations/202610110002_create_operation_jobs.php`; runtime migration and recovery tests remain outstanding.
+
 - Add a table for queued/running/succeeded/failed/rollback-required/cancelled jobs.
 - Include operation type, owning server/website, request actor, attempt count, timestamps, redacted error summary and non-secret validated payload/result.
 - Add indexes for workers selecting queued jobs and administrators filtering by status/date.
