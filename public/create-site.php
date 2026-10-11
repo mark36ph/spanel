@@ -4,6 +4,7 @@ require_once dirname(__DIR__) . '/app/Security.php';
 $config = require dirname(__DIR__) . '/config/config.local.php';
 Security::startSession($config);
 require_once dirname(__DIR__) . '/app/View.php';
+require_once dirname(__DIR__) . '/app/OperationQueue.php';
 $admin = Auth::requireLogin();
 $pdo = Database::connection();
 $servers = $pdo->query("SELECT id, name, hostname, status, is_local FROM servers ORDER BY is_local DESC, name")->fetchAll();
@@ -45,9 +46,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $createdId = (int)$pdo->lastInsertId();
                 $domainStmt = $pdo->prepare("INSERT INTO website_domains (website_id, domain, domain_type, is_primary, status) VALUES (:website_id, :domain, 'primary', 1, 'pending')");
                 $domainStmt->execute(['website_id' => $createdId, 'domain' => $domain]);
-                $payload = ['create_database_requested' => $createDatabase, 'php_version_requested' => $phpVersion === '' ? null : $phpVersion];
-                $job = $pdo->prepare("INSERT INTO operation_jobs (server_id, website_id, operation_type, status, payload_json, requested_by_admin_id) VALUES (:server_id, :website_id, 'website.provision', 'queued', :payload, :admin_id)");
-                $job->execute(['server_id' => (int)$serverId, 'website_id' => $createdId, 'payload' => json_encode($payload, JSON_THROW_ON_ERROR), 'admin_id' => (int)$admin['id']]);
+                OperationQueue::enqueueWebsiteProvision(
+                    $pdo,
+                    (int)$serverId,
+                    $createdId,
+                    (int)$admin['id'],
+                    $createDatabase,
+                    $phpVersion === '' ? null : $phpVersion
+                );
                 $audit = $pdo->prepare("INSERT INTO audit_events (admin_id, event_type, target_type, target_id, details_json) VALUES (:admin_id, 'website.created_pending', 'website', :target_id, :details)");
                 $audit->execute(['admin_id' => (int)$admin['id'], 'target_id' => (string)$createdId, 'details' => json_encode(['domain' => $domain, 'server_id' => (int)$serverId, 'database_requested' => $createDatabase], JSON_THROW_ON_ERROR)]);
                 $pdo->commit();
