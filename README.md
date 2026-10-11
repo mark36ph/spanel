@@ -11,9 +11,19 @@ A custom hosting control panel for Projectabe, FactBurstQuiz, and future sites. 
 - Least-privilege website isolation and a restricted privileged operations service. PHP-FPM must never run as root or execute arbitrary commands.
 - No paid cPanel/Plesk dependency.
 
-## Preflight
+## Install on a disposable Ubuntu VM
 
-After configuring `config/config.local.php`, run `php bin/doctor.php` from the repository root. It performs read-only checks for the PHP runtime, required extensions, configuration permissions, database connectivity, required tables and migration checksums. It is a preflight only; it does not install packages or configure services.
+The first-install bootstrap targets **Ubuntu Server 24.04 LTS**. From the repository root on a clean VM, run:
+
+```bash
+sudo bash install/ubuntu-vm-install.sh
+```
+
+It installs Nginx, PHP-FPM and MariaDB, creates a private panel DB credential, applies the schema/migrations, registers the local VM and prompts you to create the first administrator. It refuses to overwrite an existing `/opt/spanel` install or an existing SPanel Nginx site. Review the script before running it; it changes the VM and installs system packages.
+
+For VirtualBox NAT, forward **host TCP 8081 to guest TCP 80**, then open `http://127.0.0.1:8081` on Windows. Keep the VM private; do not expose the panel publicly.
+
+After installation, `php bin/doctor.php` is a read-only preflight for PHP/extensions, configuration permissions, database connectivity, required tables and migration checksum drift. The installer runs it at the end. It does not test hosted-site provisioning.
 
 ## Project docs
 - [Architecture and lifecycle](docs/ARCHITECTURE.md)
@@ -25,4 +35,4 @@ After configuring `config/config.local.php`, run `php bin/doctor.php` from the r
 - [Local development setup](docs/DEVELOPMENT.md)
 - [Installer and updates design](docs/INSTALLER-AND-UPDATES.md)
 
-The repository now includes metadata-only server registration, website registration/domain management, a provisioning job queue and an operations status page. These do not yet configure Linux users, Nginx, PHP-FPM, DNS or databases. The installer, privileged worker, updater and secure phpMyAdmin sign-on are still outstanding. Keep the development panel private and do not migrate production sites until VM installation, update, rollback and restore tests pass.
+The repository includes an initial Ubuntu VM installer draft, metadata-only server registration, website registration/domain management, a provisioning job queue and an operations status page. The installer itself has not yet been run on a VM. Website creation still does not configure isolated Linux users, per-site PHP-FPM pools, hosted-site databases or website Nginx configs; secure phpMyAdmin sign-on and the safe privileged operations helper remain outstanding. Keep the panel private and do not migrate production sites until VM installation, update, rollback and restore tests pass.
