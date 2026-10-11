@@ -125,6 +125,15 @@ if (PHP_OS_FAMILY !== 'Windows') {
         && is_file('/etc/phpmyadmin/conf.d/99-spanel.php');
     doctorCheck('phpMyAdmin signon configuration', $phpMyAdminReady, 'phpMyAdmin and SPanel signon configuration are installed', 'Install phpMyAdmin and its SPanel signon configuration.', true);
 
+    $panelSessionPath = '/var/lib/spanel/panel-sessions';
+    $panelSessionStat = @lstat($panelSessionPath);
+    $panelSessionReady = $panelSessionStat !== false
+        && is_dir($panelSessionPath)
+        && (int)($panelSessionStat['uid'] ?? -1) === (function_exists('posix_geteuid') ? posix_geteuid() : -2)
+        && (((int)($panelSessionStat['mode'] ?? 0)) & 0077) === 0
+        && is_readable($panelSessionPath);
+    doctorCheck('SPanel session isolation', $panelSessionReady, 'panel session directory is private to the panel account', 'Check ownership and mode of /var/lib/spanel/panel-sessions.', true);
+
     $sessionDirPath = '/var/lib/spanel/phpmyadmin-sessions';
     $sessionDirStat = @lstat($sessionDirPath);
     $sessionDirReady = $sessionDirStat !== false
