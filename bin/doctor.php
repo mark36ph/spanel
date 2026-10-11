@@ -36,6 +36,7 @@ $requiredFiles = [
     'database/schema.sql',
     'bin/migrate.php',
     'bin/create-admin.php',
+    'bin/health-check.php',
     'public/index.php',
 ];
 doctorCheck('PHP version', PHP_VERSION_ID >= 80200, PHP_VERSION, 'PHP 8.2 or newer is required.');
@@ -112,6 +113,9 @@ if (PHP_OS_FAMILY !== 'Windows') {
     $timerReady = is_file('/etc/systemd/system/spanel-worker.timer');
     doctorCheck('Provisioning queue timer', $timerReady, 'systemd timer unit is installed', 'Install the spanel-worker.timer unit and enable it with systemd.', true);
 
+    $healthTimerReady = is_file('/etc/systemd/system/spanel-health-check.timer');
+    doctorCheck('Local health-check timer', $healthTimerReady, 'systemd timer unit is installed', 'Install the spanel-health-check.timer unit and enable it with systemd.', true);
+
     $brokerPath = '/usr/local/sbin/spanel-pma-credential-broker';
     $brokerStat = @lstat($brokerPath);
     $brokerReady = $brokerStat !== false
@@ -169,7 +173,7 @@ if ($pdo instanceof PDO) {
     try {
         $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
         $tableSet = array_fill_keys($tables, true);
-        foreach (['admins', 'servers', 'websites', 'website_databases', 'schema_migrations'] as $table) {
+        foreach (['admins', 'servers', 'websites', 'website_databases', 'login_rate_limits', 'server_health_checks', 'schema_migrations'] as $table) {
             doctorCheck('Table ' . $table, isset($tableSet[$table]), 'present', 'Run the base schema and migration runner.');
         }
 
