@@ -42,10 +42,14 @@ PHP_VERSION_ID="$(php -r 'echo PHP_VERSION_ID;')"
 [[ "$PHP_VERSION_ID" -ge 80200 ]] || fail "PHP 8.2 or newer is required; detected $(php -v | head -n 1)."
 [[ -S "/run/php/php${PHP_VERSION}-fpm.sock" || -e "/lib/systemd/system/php${PHP_VERSION}-fpm.service" ]] || fail "Could not locate the PHP-FPM service/socket for PHP $PHP_VERSION."
 
-info "Creating the dedicated panel account and application directory"
-if ! getent passwd "$APP_USER" >/dev/null; then
-    useradd --system --home-dir "$APP_DIR" --shell /usr/sbin/nologin "$APP_USER"
+info "Creating the dedicated, non-root panel account and application directory"
+if getent passwd "$APP_USER" >/dev/null; then
+    fail "The '$APP_USER' account already exists. Inspect it first and use a clean VM; the installer will not adopt an unverified account."
 fi
+useradd --system --user-group --home-dir "$APP_DIR" --no-create-home --shell /usr/sbin/nologin "$APP_USER"
+APP_UID="$(id -u "$APP_USER")"
+APP_SHELL="$(getent passwd "$APP_USER" | cut -d: -f7)"
+[[ "$APP_UID" -gt 0 && "$APP_SHELL" == "/usr/sbin/nologin" ]] || fail "The dedicated panel account is not safely configured."
 usermod -a -G www-data "$APP_USER"
 install -d -o root -g www-data -m 0750 "$APP_DIR"
 tar --exclude='./.git' --exclude='./config/config.local.php' -C "$(pwd)" -cf - . | tar -C "$APP_DIR" -xf -
