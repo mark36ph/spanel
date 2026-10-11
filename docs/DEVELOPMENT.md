@@ -32,6 +32,9 @@ From the repository root:
 mariadb -u spanel_app -p spanel < database/schema.sql
 cp config/config.example.php config/config.local.php
 nano config/config.local.php
+php bin/migrate.php --status
+php bin/migrate.php --dry-run
+php bin/migrate.php
 php bin/create-admin.php
 ```
 
@@ -43,3 +46,15 @@ Use VirtualBox NAT port forwarding from host port 8080 to guest port 8080, then 
 
 ## Stage 1 limitations
 The current build contains authentication, dashboard and an inventory UI. It does not yet create operating-system users, Nginx sites, databases for hosted sites, mailboxes, SSL certificates or cron jobs. Those operations require a dedicated, narrowly scoped privileged service, strict input validation, audit events and rollback.
+
+
+## Database migrations
+
+Migrations are immutable PHP files under `database/migrations/` that return a callable receiving the PDO connection. The runner is CLI-only and uses a MariaDB advisory lock during apply operations.
+
+- `php bin/migrate.php --status` lists applied and pending migrations.
+- `php bin/migrate.php --dry-run` lists pending work without creating or modifying the migration table.
+- `php bin/migrate.php` applies pending migrations in filename order.
+- If an applied file's SHA-256 checksum changes, the runner stops. Add a new migration instead of editing an applied migration.
+
+The first migration creates `website_domains` and copies legacy primary domains while keeping `websites.domain` for compatibility. It refuses invalid/colliding domains and websites with no server assignment. Because MariaDB DDL can implicitly commit, a failed migration may leave additive schema changes behind; inspect the database and follow the migration recovery notes before retrying. Do not run against live sites until tested on a disposable VM and a verified backup.
