@@ -36,12 +36,14 @@ sudo -u spanel php /opt/spanel/bin/migrate.php --status
 sudo systemctl --no-pager --full status spanel-worker.timer
 sudo stat -c '%U:%G:%a %n' /usr/local/sbin/spanel-ops /etc/sudoers.d/spanel-ops /etc/spanel/database-secrets.key /var/lib/spanel/secrets
 curl -sS -o /dev/null -w 'Login HTTP status: %{http_code}\n' http://127.0.0.1/login.php
+curl -sS -o /dev/null -w 'phpMyAdmin unauthenticated status: %{http_code}\n' http://127.0.0.1/phpmyadmin/
 ```
 
 - [ ] Nginx, PHP-FPM and MariaDB are active.
 - [ ] Doctor reports `PASS` with no unexpected warnings.
 - [ ] Every migration is marked applied and there are no checksum errors.
 - [ ] The login endpoint returns HTTP `200`.
+- [ ] Unauthenticated `/phpmyadmin/` returns HTTP `302` to SPanel sign-in rather than exposing a database login or returning a server error.
 
 ## 3. Verify panel access
 
