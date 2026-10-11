@@ -24,14 +24,14 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 ## Stage 2 — Repeatable CLI installation
 - [x] Add a first-install Ubuntu Server 24.04 VM installer draft at `install/ubuntu-vm-install.sh`. [ ] Review and run it on a clean disposable VM; verify fresh install, permissions, Nginx/PHP-FPM, migrations and login.
 - [x] Add a read-only CLI preflight for PHP/extensions, local configuration, DB connectivity, required tables and migration checksum drift. [ ] Verify its output on the Ubuntu VM.
-- [ ] Complete installer preflight checks for supported OS, privileges, dependencies, network and disk space.
-- [ ] Install and configure PHP-FPM, Nginx and MariaDB as appropriate.
-- [ ] Create restricted panel account, local configuration and least-privilege DB account.
-- [ ] Initialise the schema through versioned migrations.
-- [ ] Create the first administrator with hidden password entry.
-- [ ] Configure Nginx to expose only the public directory and validate config before reload.
-- [ ] Make reinstall safe: preserve existing configuration/data and stop before destructive actions.
-- [ ] Document install, repair, backup and uninstall/recovery procedures.
+- [x] Add installer preflight checks for Ubuntu 24.04, root privileges, dependencies, disk space and port 80. [ ] Verify failure paths on the VM.
+- [x] Add installer steps to install and configure PHP-FPM, Nginx and MariaDB. [ ] Verify service startup and HTTP/PHP-FPM routing in the VM.
+- [x] Add installer steps for an unprivileged panel account, private local configuration and scoped database grants. [ ] Review effective permissions in the VM.
+- [x] Add installer steps to import the base schema and apply versioned migrations. [ ] Verify fresh-install migration results in the VM.
+- [x] Add installer step to create the first administrator with hidden password entry. [ ] Verify interactive password input in the VM.
+- [x] Add installer Nginx configuration limited to the public directory and validate it before reload. [ ] Verify routing and denied paths in the VM.
+- [x] Refuse to overwrite an existing `/opt/spanel` install or existing SPanel Nginx site. [ ] Add and test a documented repair/resume path for interrupted first installs.
+- [x] Document first installation and basic interrupted-operation recovery. [ ] Document and test install repair, backup, restore and uninstall procedures.
 
 ## Stage 3 — Core data model and server inventory
 - [x] Add the first forward migration for `website_domains`, preserving `websites.domain` for compatibility and refusing invalid/normalized-colliding domains or websites without server assignments. [ ] Run and test the migration against fresh and representative legacy databases in the Ubuntu VM.
