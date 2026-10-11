@@ -135,9 +135,9 @@ sudo journalctl -u spanel-worker.timer -n 100 --no-pager
 
 ## Not yet acceptance-tested
 
-The installer now prepares the restricted website/database helper, root-only encrypted credential store, automatic queue timer, phpMyAdmin package/configuration, isolated phpMyAdmin PHP-FPM pool and root-owned signon broker. These changes are implemented in code but not built or acceptance-tested in the Ubuntu VM yet. SSL, DNS automation, backups/restores and safe panel updates/rollback remain incomplete. Keep SPanel private and do not migrate Projectabe or FactBurstQuiz until installation, signon replay/expiry, cross-site isolation, failure recovery and restore tests pass.
+The installer now prepares the restricted website/database helper, root-only encrypted credential store, queue timer, local health-check timer, login throttling, phpMyAdmin package/configuration, isolated phpMyAdmin PHP-FPM pool and root-owned signon broker. These changes are implemented in code but not acceptance-tested in the Ubuntu VM yet. Automated backups/restores, safe website removal, SSL, DNS automation and safe panel updates/rollback remain incomplete. Keep SPanel private and do not migrate Projectabe or FactBurstQuiz until installation, signon replay/expiry, cross-site isolation, failure recovery and restore tests pass.
 
-## 7. Recovery and destructive-action safeguards
+## 8. Recovery and destructive-action safeguards
 
 - [ ] Read [backup, restore and recovery preparation](BACKUP-RESTORE-AND-RECOVERY.md) before changing or removing VM resources.
 - [ ] Take a named VirtualBox snapshot before installer, migration or provisioning failure tests.
