@@ -57,12 +57,17 @@ try {
     }
 
     $pdo = Database::connection();
-    $pdo->exec("CREATE TABLE IF NOT EXISTS schema_migrations (
-        migration_id VARCHAR(190) NOT NULL,
-        checksum CHAR(64) NOT NULL,
-        applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (migration_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $tableCheck = $pdo->query("SHOW TABLES LIKE 'schema_migrations'");
+    $hasMigrationTable = $tableCheck->fetchColumn() !== false;
+    if (!$hasMigrationTable && $mode === 'apply') {
+        $pdo->exec("CREATE TABLE schema_migrations (
+            migration_id VARCHAR(190) NOT NULL,
+            checksum CHAR(64) NOT NULL,
+            applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (migration_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $hasMigrationTable = true;
+    }
 
     if ($mode !== '--dry-run') {
         $stmt = $pdo->prepare('SELECT GET_LOCK(:lock_name, 10)');
@@ -73,7 +78,9 @@ try {
         $locked = true;
     }
 
-    $appliedRows = $pdo->query('SELECT migration_id, checksum, applied_at FROM schema_migrations')->fetchAll();
+    $appliedRows = $hasMigrationTable
+        ? $pdo->query('SELECT migration_id, checksum, applied_at FROM schema_migrations')->fetchAll()
+        : [];
     $applied = [];
     foreach ($appliedRows as $row) {
         $applied[$row['migration_id']] = $row;
