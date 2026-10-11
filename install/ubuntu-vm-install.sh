@@ -325,7 +325,7 @@ server {
 
     location ~ ^/phpmyadmin/(.+\.php)$ {
         auth_request /phpmyadmin-auth-check.php;
-        error_page 401 =302 /login.php;
+        error_page 401 = @spanel_pma_login;
         root /usr/share;
         try_files \$uri =404;
         include snippets/fastcgi-php.conf;
@@ -340,10 +340,14 @@ server {
 
     location /phpmyadmin/ {
         auth_request /phpmyadmin-auth-check.php;
-        error_page 401 =302 /login.php;
+        error_page 401 = @spanel_pma_login;
         root /usr/share;
         index index.php;
         try_files \$uri \$uri/ =404;
+    }
+
+    location @spanel_pma_login {
+        return 302 /login.php;
     }
 }
 NGINX
