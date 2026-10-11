@@ -359,6 +359,8 @@ Next:
 This is a private development install. Do not expose it to the public internet.
 The installer runs as root for system setup; panel commands run as the dedicated
 non-root 'spanel' account. Application code stays root-owned and read-only to that
-account. The fixed root-owned helper can provision isolated websites and optional
-MariaDB databases. Direct phpMyAdmin sign-on, DNS automation and SSL remain disabled.
+account. The fixed root-owned helpers provision isolated websites/databases and perform
+a short-lived phpMyAdmin signon without returning database passwords to the panel.
+This integration is code-complete but has not passed VM acceptance testing. Keep
+the VM private; public use requires HTTPS and the remaining DNS/SSL work.
 DONE
