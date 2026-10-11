@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -134,7 +135,17 @@ func (p *provisioner) run(r request) error {
 	for _, path := range []string{root,p.poolPath,"/etc/php/8.2/fpm/pool.d/"+pool+".conf","/etc/php/8.3/fpm/pool.d/"+pool+".conf",p.nginxPath,p.nginxLink} {
 		if exists(path) || isSymlink(path) { return errors.New("resource collision") }
 	}
-	if !regularExecutable("/usr/sbin/nginx") || !exists("/etc/nginx/sites-available") || !exists("/etc/nginx/sites-enabled") {
+	for _, directory := range []string{
+		"/var", "/var/www", "/var/www/spanel", "/var/www/spanel/sites",
+		"/etc", "/etc/nginx", "/etc/nginx/sites-available", "/etc/nginx/sites-enabled",
+		"/etc/php", "/etc/php/" + p.phpVersion, "/etc/php/" + p.phpVersion + "/fpm",
+		"/etc/php/" + p.phpVersion + "/fpm/pool.d",
+	} {
+		if !secureRootDirectory(directory) {
+			return errors.New("required directory is missing or not securely owned")
+		}
+	}
+	if !regularExecutable("/usr/sbin/nginx") {
 		return errors.New("nginx unavailable")
 	}
 	if err := os.Mkdir(root, 0750); err != nil { return err }
@@ -185,6 +196,12 @@ func (p *provisioner) rollback() {
 func uid(username string) int { u,err:=user.Lookup(username); if err!=nil{return 0}; n,_:=strconv.Atoi(u.Uid); return n }
 func gid(username string) int { u,err:=user.Lookup(username); if err!=nil{return 0}; n,_:=strconv.Atoi(u.Gid); return n }
 func regularExecutable(path string) bool { i,e:=os.Stat(path); return e==nil&&i.Mode().IsRegular()&&i.Mode().Perm()&0111!=0 }
+func secureRootDirectory(path string) bool {
+	i, err := os.Lstat(path)
+	if err != nil || !i.IsDir() || i.Mode()&os.ModeSymlink != 0 || i.Mode().Perm()&0022 != 0 { return false }
+	stat, ok := i.Sys().(*syscall.Stat_t)
+	return ok && stat.Uid == 0
+}
 func exists(path string) bool { _,e:=os.Lstat(path); return e==nil }
 func isSymlink(path string) bool { i,e:=os.Lstat(path); return e==nil&&i.Mode()&os.ModeSymlink!=0 }
 func atomicWrite(path, content string, mode os.FileMode) error {
