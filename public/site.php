@@ -4,6 +4,7 @@ require_once dirname(__DIR__) . '/app/Security.php';
 $config = require dirname(__DIR__) . '/config/config.local.php';
 Security::startSession($config);
 require_once dirname(__DIR__) . '/app/View.php';
+require_once dirname(__DIR__) . '/app/DomainName.php';
 $admin = Auth::requireLogin();
 $pdo = Database::connection();
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
@@ -26,10 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string)($_POST['action'] ?? '');
     if ($action === 'add_domain') {
         $raw = trim((string)($_POST['domain'] ?? ''));
-        $domain = strtolower(rtrim($raw, '.'));
+        $domain = DomainName::normalize($raw);
         $domainType = (string)($_POST['domain_type'] ?? 'alias');
         $validType = in_array($domainType, ['alias', 'subdomain'], true);
-        $valid = strlen($domain) <= 253
+        $valid = $domain !== null;
             && preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/D', $domain);
         if (!$validType) {
             $error = 'Select whether this domain is an alias or subdomain.';
