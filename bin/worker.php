@@ -244,14 +244,19 @@ try {
                 }
             } else {
                 $insertDatabase = $pdo->prepare(
-                    'INSERT INTO website_databases (website_id, server_id, database_name, database_user)
-                     VALUES (:website_id, :server_id, :database_name, :database_user)'
+                    "INSERT INTO website_databases
+                        (website_id, server_id, database_name, database_user, status, secret_ref)
+                     VALUES
+                        (:website_id, :server_id, :database_name, :database_user, 'active', :secret_ref)"
                 );
                 $insertDatabase->execute([
                     'website_id' => $websiteId,
                     'server_id' => (int)$job['server_id'],
                     'database_name' => $databaseName,
                     'database_user' => $databaseUser,
+                    // The encrypted secret is held by the root-only local store;
+                    // this stable reference is metadata, not a credential.
+                    'secret_ref' => 'website-db:' . $websiteId,
                 ]);
             }
         }
