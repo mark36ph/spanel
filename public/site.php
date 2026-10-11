@@ -5,6 +5,7 @@ $config = require dirname(__DIR__) . '/config/config.local.php';
 Security::startSession($config);
 require_once dirname(__DIR__) . '/app/View.php';
 require_once dirname(__DIR__) . '/app/DomainName.php';
+require_once dirname(__DIR__) . '/app/PhpMyAdminHandoff.php';
 $admin = Auth::requireLogin();
 $pdo = Database::connection();
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
@@ -62,6 +63,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+    } elseif ($action === 'open_phpmyadmin') {
+        $databaseId = filter_var($_POST['database_id'] ?? null, FILTER_VALIDATE_INT);
+        if (!is_int($databaseId) || $databaseId < 1) {
+            $error = 'Select a valid website database.';
+        } else {
+            $databaseStmt = $pdo->prepare(
+                'SELECT d.id, d.website_id, d.server_id, d.database_name, d.database_user, d.status, d.secret_ref,
+                        w.status AS website_status, w.server_id AS website_server_id, s.is_local
+                 FROM website_databases d
+                 INNER JOIN websites w ON w.id = d.website_id
+                 INNER JOIN servers s ON s.id = d.server_id
+                 WHERE d.id = :database_id AND d.website_id = :website_id
+                 LIMIT 1'
+            );
+            $databaseStmt->execute(['database_id' => $databaseId, 'website_id' => $id]);
+            $database = $databaseStmt->fetch();
+            $expectedName = 'spw_' . $id;
+            $expectedUser = 'spu_' . $id;
+            if (!$database
+                || $website['status'] !== 'active'
+                || $database['website_status'] !== 'active'
+                || $database['status'] !== 'active'
+                || (int)$database['is_local'] !== 1
+                || (int)$database['server_id'] !== (int)$database['website_server_id']
+                || $database['database_name'] !== $expectedName
+                || $database['database_user'] !== $expectedUser
+                || $database['secret_ref'] !== 'website-db:' . $id) {
+                $error = 'phpMyAdmin is available only for an active database on this local server.';
+            } else {
+                $remoteAddress = $_SERVER['REMOTE_ADDR'] ?? null;
+                if (!is_string($remoteAddress) || filter_var($remoteAddress, FILTER_VALIDATE_IP) === false) {
+                    $remoteAddress = null;
+                }
+                try {
+                    $token = PhpMyAdminHandoff::issue($pdo, (int)$admin['id'], $databaseId, $remoteAddress);
+                    $_SESSION['pma_pending_handoff'] = [
+                        'token' => $token,
+                        'database_id' => $databaseId,
+                        'website_id' => $id,
+                        'issued_at' => time(),
+                        'remote_addr' => $remoteAddress,
+                    ];
+                    header('Location: /phpmyadmin-launch.php', true, 303);
+                    exit;
+                } catch (Throwable $e) {
+                    error_log('SPanel could not issue a phpMyAdmin handoff: ' . $e->getMessage());
+                    $error = 'Could not start the secure phpMyAdmin handoff. Check the server setup and try again.';
+                }
+            }
+        }
     } elseif ($action === 'remove_domain') {
         $domain = DomainName::normalize((string)($_POST['domain'] ?? ''));
         if ($domain === null) {
@@ -99,7 +150,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $domains = $pdo->prepare('SELECT domain, domain_type, is_primary, status, created_at FROM website_domains WHERE website_id = :id ORDER BY is_primary DESC, domain ASC');
 $domains->execute(['id' => $id]);
 $domains = $domains->fetchAll();
-$dbs = $pdo->prepare('SELECT database_name, database_user, status, created_at FROM website_databases WHERE website_id = :id ORDER BY database_name ASC');
+$dbs = $pdo->prepare(
+    'SELECT d.id, d.server_id, d.database_name, d.database_user, d.status, d.secret_ref, d.created_at, s.is_local
+     FROM website_databases d LEFT JOIN servers s ON s.id = d.server_id
+     WHERE d.website_id = :id ORDER BY d.database_name ASC'
+);
 $dbs->execute(['id' => $id]);
 $databases = $dbs->fetchAll();
 $operationStmt = $pdo->prepare('SELECT id, operation_type, status, error_code, error_summary, created_at, finished_at FROM operation_jobs WHERE website_id = :id ORDER BY id DESC LIMIT 10');
@@ -111,6 +166,7 @@ renderHeader((string)$website['name'], 'sites');
 <div class="welcome-row"><div><p class="muted">WEBSITE MANAGEMENT</p><h2><?= Security::escape($website['domain']) ?></h2><p class="muted">Manage this website's domains and database metadata.</p></div><a class="secondary-button link-button" href="/sites.php">← All websites</a></div>
 <?php if ($error !== ''): ?><div class="alert"><?= Security::escape($error) ?></div><?php endif; ?>
 <?php if ($success !== ''): ?><div class="notice"><strong>Saved</strong><p><?= Security::escape($success) ?></p></div><?php endif; ?>
+<?php if (($_GET['pma'] ?? '') === 'error'): ?><div class="alert">The secure phpMyAdmin handoff could not be completed. Check that phpMyAdmin and its restricted credential broker are installed, then try again.</div><?php endif; ?>
 <div class="stat-grid">
 <article class="stat-card"><div class="stat-top"><span>Status</span><span class="stat-icon green">●</span></div><strong class="env-value"><?= Security::escape($website['status']) ?></strong><small><?= $website['status'] === 'active' ? 'Local site health check passed' : 'See recent operation results for setup status' ?></small></article>
 <article class="stat-card"><div class="stat-top"><span>PHP version</span><span class="stat-icon">⌘</span></div><strong class="env-value"><?= Security::escape($website['php_version'] ?? 'Not set') ?></strong><small>Selected during provisioning and checked by the helper</small></article>
@@ -129,6 +185,6 @@ renderHeader((string)$website['name'], 'sites');
 <div class="section-heading"><div><h3>Add domain or subdomain</h3><p class="muted">The domain must not already belong to another website.</p></div></div>
 <div class="login-card"><form method="post" class="form-stack"><input type="hidden" name="_csrf" value="<?= Security::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="add_domain"><label>Domain name<input name="domain" placeholder="www.example.com" maxlength="253" required pattern="(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*"></label><label>Domain type<select name="domain_type"><option value="alias">Alias</option><option value="subdomain">Subdomain</option></select></label><button class="primary-button" type="submit">Add domain</button></form></div>
 <div class="section-heading"><div><h3>Databases</h3><p class="muted">Databases are created with a dedicated local-only user and encrypted root-only credential storage. Direct phpMyAdmin sign-on is still being completed.</p></div></div>
-<?php if ($databases): ?><div class="site-table-wrap"><table class="site-table"><thead><tr><th>Database</th><th>Username</th><th>Status</th><th>Created</th><th>Tools</th></tr></thead><tbody><?php foreach ($databases as $db): ?><tr><td><strong><?= Security::escape($db['database_name']) ?></strong></td><td><?= Security::escape($db['database_user']) ?></td><td><span class="status-badge"><?= Security::escape($db['status'] ?? 'active') ?></span></td><td><?= Security::escape($db['created_at']) ?></td><td><span class="muted">phpMyAdmin sign-on not enabled yet</span></td></tr><?php endforeach; ?></tbody></table></div><?php else: ?><div class="empty-state"><div class="empty-icon">▤</div><h3>No databases tracked</h3><p>Choose “Create a website database” in the website wizard, or create one when that management action is added.</p></div><?php endif; ?>
-<div class="notice"><strong>Development mode</strong><p>Website provisioning runs through a fixed root-owned helper and is recorded in Operations. DNS automation, SSL and direct phpMyAdmin sign-on remain disabled. Keep this VM private and use test domains until the acceptance checklist passes.</p></div>
+<?php if ($databases): ?><div class="site-table-wrap"><table class="site-table"><thead><tr><th>Database</th><th>Username</th><th>Status</th><th>Created</th><th>Tools</th></tr></thead><tbody><?php foreach ($databases as $db): ?><tr><td><strong><?= Security::escape($db['database_name']) ?></strong></td><td><?= Security::escape($db['database_user']) ?></td><td><span class="status-badge"><?= Security::escape($db['status'] ?? 'active') ?></span></td><td><?= Security::escape($db['created_at']) ?></td><td><?php if ($website['status'] === 'active' && $db['status'] === 'active' && (int)$db['is_local'] === 1 && $db['database_name'] === 'spw_' . $id && $db['database_user'] === 'spu_' . $id && $db['secret_ref'] === 'website-db:' . $id): ?><form method="post" action="/site.php?id=<?= (int)$id ?>" class="inline-form"><input type="hidden" name="_csrf" value="<?= Security::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="open_phpmyadmin"><input type="hidden" name="database_id" value="<?= (int)$db['id'] ?>"><button class="secondary-button" type="submit">Open phpMyAdmin ↗</button></form><?php else: ?><span class="muted">Unavailable until database setup is complete</span><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div><?php else: ?><div class="empty-state"><div class="empty-icon">▤</div><h3>No databases tracked</h3><p>Choose “Create a website database” in the website wizard, or create one when that management action is added.</p></div><?php endif; ?>
+<div class="notice"><strong>Development mode</strong><p>Database access uses phpMyAdmin's supported signon authentication and a short-lived server-side handoff. Keep this VM private; DNS automation and SSL remain disabled until their acceptance checks pass.</p></div>
 <?php renderFooter(); ?>
