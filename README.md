@@ -1,23 +1,20 @@
 # SPanel — Custom Hosting Control Panel
 
-A fully custom hosting control panel for Projectabe, FactBurstQuiz, and future sites. The project will be developed and tested locally in an Ubuntu Server virtual machine before any production VPS migration.
+A custom hosting control panel for Projectabe, FactBurstQuiz, and future sites. Develop and test on a private Ubuntu Server virtual machine before any production VPS migration.
 
-## Development principles
-- PHP application with MariaDB metadata storage.
-- Nginx and PHP-FPM as the target hosting stack.
-- Multi-server-ready from the beginning: start with one local server, add hosting nodes later, and associate each website with its server.
-- No hard-coded website limit and no paid cPanel/Plesk dependency.
-- Command-line installation on a fresh Ubuntu VM or VPS, with safe repeatable setup.
-- Planned in-panel update workflow for approved GitHub releases, with backups, validation, health checks and rollback.
-- Website-specific management areas for databases, cron jobs, email, SSL, files, logs, backups, and deployment.
-- Never expose the development panel publicly.
-- Privileged server operations must use a narrowly scoped, validated service; never execute arbitrary shell commands from web requests.
+## Principles
+- PHP, MariaDB, Nginx and PHP-FPM.
+- Multi-server-ready architecture with no hard-coded website limit.
+- Repeatable command-line installation on a clean Ubuntu VM or VPS.
+- Planned in-panel updates from approved GitHub releases, with backups, health checks and rollback.
+- Website-specific management for domains, files, databases, email, cron, SSL, backups, logs and Git deployment.
+- Least-privilege website isolation and a restricted privileged operations service. PHP-FPM must never run as root or execute arbitrary commands.
+- No paid cPanel/Plesk dependency.
 
-## Roadmap
-See [docs/ROADMAP.md](docs/ROADMAP.md) for stages and checklists.
+## Project docs
+- [Architecture and lifecycle](docs/ARCHITECTURE.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Local development setup](docs/DEVELOPMENT.md)
+- [Installer and updates design](docs/INSTALLER-AND-UPDATES.md)
 
-## Local development
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for the local VM setup.
-
-## Installation and updates
-See [docs/INSTALLER-AND-UPDATES.md](docs/INSTALLER-AND-UPDATES.md). The installer and updater are planned features and must be implemented and tested before production use.
+The installer, updater and website provisioning are not yet implemented. Keep the development panel private and do not migrate production sites until VM installation, update, rollback and restore tests pass.
