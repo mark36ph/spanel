@@ -2,7 +2,10 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"errors"
 	"fmt"
 	"net"
@@ -109,7 +112,12 @@ func handle(conn net.Conn) {
 		return
 	}
 	var raw map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(strings.TrimSuffix(frame, "\n")), &raw); err != nil {
+	payload := []byte(strings.TrimSuffix(frame, "\n"))
+	if err := rejectDuplicateJSONKeys(payload); err != nil {
+		writeJSON(conn, response{OK: false, Error: "invalid_request"})
+		return
+	}
+	if err := json.Unmarshal(payload, &raw); err != nil {
 		writeJSON(conn, response{OK: false, Error: "invalid_request"})
 		return
 	}
@@ -127,8 +135,12 @@ func handle(conn net.Conn) {
 			return
 		}
 	}
+	if string(raw["create_database"]) != "true" && string(raw["create_database"]) != "false" {
+		writeJSON(conn, response{OK: false, Error: "invalid_request"})
+		return
+	}
 	var req request
-	if err := json.Unmarshal([]byte(strings.TrimSuffix(frame, "\n")), &req); err != nil {
+	if err := json.Unmarshal(payload, &req); err != nil {
 		writeJSON(conn, response{OK: false, Error: "invalid_request"})
 		return
 	}
@@ -149,6 +161,68 @@ func handle(conn net.Conn) {
 	writeJSON(conn, response{OK: true, WebsiteID: req.WebsiteID, Domain: req.Domain, Facts: f})
 }
 
+// rejectDuplicateJSONKeys rejects ambiguous objects instead of accepting the last
+// occurrence of a repeated key, as encoding/json otherwise does.
+func rejectDuplicateJSONKeys(input []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(input))
+	var parseValue func() error
+	parseValue = func() error {
+		token, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		delim, ok := token.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch delim {
+		case '{':
+			seen := make(map[string]bool)
+			for decoder.More() {
+				keyToken, err := decoder.Token()
+				if err != nil {
+					return err
+				}
+				key, ok := keyToken.(string)
+				if !ok || seen[key] {
+					return errors.New("invalid or duplicate JSON key")
+				}
+				seen[key] = true
+				if err := parseValue(); err != nil {
+					return err
+				}
+			}
+			end, err := decoder.Token()
+			if err != nil || end != json.Delim('}') {
+				return errors.New("invalid JSON object")
+			}
+		case '[':
+			for decoder.More() {
+				if err := parseValue(); err != nil {
+					return err
+				}
+			}
+			end, err := decoder.Token()
+			if err != nil || end != json.Delim(']') {
+				return errors.New("invalid JSON array")
+			}
+		default:
+			return errors.New("unexpected JSON delimiter")
+		}
+		return nil
+	}
+	if err := parseValue(); err != nil {
+		return err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		if err == nil {
+			return errors.New("trailing JSON value")
+		}
+		return err
+	}
+	return nil
+}
+
 func validate(r request) error {
 	if r.WebsiteID < 1 || r.RequiredDiskBytes < 1 || !validDomain(r.Domain) {
 		return errors.New("invalid identity or domain")
@@ -163,7 +237,7 @@ func validate(r request) error {
 }
 
 func validDomain(domain string) bool {
-	if domain == "" || len(domain) > 253 || strings.ToLower(domain) != domain || strings.HasSuffix(domain, ".") {
+	if domain == "" || len(domain) > 253 || strings.ToLower(domain) != domain || strings.HasSuffix(domain, ".") || !strings.Contains(domain, ".") {
 		return false
 	}
 	for _, label := range strings.Split(domain, ".") {
