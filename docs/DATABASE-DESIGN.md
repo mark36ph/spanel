@@ -89,7 +89,7 @@ Tracks provisioning and other work that may take longer than an HTTP request.
 
 ## phpMyAdmin access
 
-Install one maintained phpMyAdmin instance per hosting server, not a copy per website. SPanel should offer a secure **Open phpMyAdmin** action for the selected website database, while keeping database credentials out of URLs and browser storage. Default access should require SPanel authentication plus HTTPS and practical network/IP restrictions; use a supported, reviewed authentication handoff. The website database user must not be able to access other websites' databases. Explicitly authorized administrator access is separate and audited. phpMyAdmin is optional management UI: database provisioning must still work when it is unavailable. See `docs/DATABASE-MIGRATIONS-AND-PHPMYADMIN.md`.
+Install one maintained phpMyAdmin instance per hosting server, not a copy per website. SPanel should offer a secure **Open phpMyAdmin** action for the selected website database, while keeping database credentials out of URLs and browser storage. Use the protected credential store and one-time handoff described in `docs/PHPMYADMIN-DIRECT-LOGIN.md` so the link can authenticate automatically. Default access should require SPanel authentication plus HTTPS and practical network/IP restrictions; use a supported, reviewed authentication handoff. The website database user must not be able to access other websites' databases. Explicitly authorized administrator access is separate and audited. phpMyAdmin is optional management UI: database provisioning must still work when it is unavailable. See `docs/DATABASE-MIGRATIONS-AND-PHPMYADMIN.md`.
 
 ## DNS model
 
