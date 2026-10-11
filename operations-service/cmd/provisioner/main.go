@@ -229,7 +229,22 @@ func run(timeout time.Duration, name string, args ...string) ([]byte,error) {
 	return stdout.Bytes(),nil
 }
 type limitedWriter struct{w io.Writer;limit int}
-func (l *limitedWriter) Write(p []byte)(int,error){if l.w==nil{return len(p),nil};if l.limit<=0{return len(p),nil};n:=len(p);if n>l.limit{n=l.limit};_,err:=l.w.Write(p[:n]);l.limit-=n;return n,err}
+func (l *limitedWriter) Write(p []byte) (int, error) {
+	if l.w == nil || l.limit <= 0 {
+		return len(p), nil
+	}
+	n := len(p)
+	if n > l.limit {
+		n = l.limit
+	}
+	_, err := l.w.Write(p[:n])
+	l.limit -= n
+	if err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
 func runCommand(timeout time.Duration,name string,args ...string) error {_,err:=run(timeout,name,args...);return err}
 func fail(code string){write(response{OK:false,ErrorCode:code});os.Exit(1)}
 func failFor(r request,code string){write(response{OK:false,WebsiteID:r.WebsiteID,Domain:r.Domain,ErrorCode:code});os.Exit(1)}
