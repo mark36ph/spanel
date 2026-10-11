@@ -144,12 +144,17 @@ function brokerCreateSignonSession(string $sessionId, string $username, string $
     $directory = BROKER_SIGNON_DIR;
     $directoryStat = brokerSecureDirectory($directory, 0007);
     $sessionGroup = (int)$directoryStat['gid'];
+    brokerSecureDirectory(BROKER_SECRET_DIR, 0077);
     if (($directoryStat['mode'] & 0020) === 0 || $sessionGroup < 1) {
         throw new RuntimeException('signon_directory_not_writable_by_group');
     }
 
-    $sessionFile = $directory . '/sess_' . $sessionId;
-    if (file_exists($sessionFile) || is_link($sessionFile)) {
+    // Create the PHP session in the root-only secret directory first. Only
+    // hard-link it into the group-writable phpMyAdmin session directory after
+    // the owner/group/mode are correct, avoiding symlink races in that directory.
+    $privateFile = BROKER_SECRET_DIR . '/sess_' . $sessionId;
+    $publicFile = $directory . '/sess_' . $sessionId;
+    if (file_exists($privateFile) || is_link($privateFile) || file_exists($publicFile) || is_link($publicFile)) {
         throw new RuntimeException('signon_session_collision');
     }
 
@@ -158,7 +163,7 @@ function brokerCreateSignonSession(string $sessionId, string $username, string $
     ini_set('session.use_strict_mode', '0');
     ini_set('session.gc_maxlifetime', '1800');
     session_name(BROKER_SESSION_NAME);
-    session_save_path($directory);
+    session_save_path(BROKER_SECRET_DIR);
     session_id($sessionId);
     if (!session_start()) {
         throw new RuntimeException('signon_session_start_failed');
@@ -173,22 +178,31 @@ function brokerCreateSignonSession(string $sessionId, string $username, string $
     ];
     session_write_close();
 
-    $stat = brokerLstat($sessionFile);
-    if (($stat['mode'] & 0170000) !== 0100000
-        || (int)$stat['uid'] !== 0
-        || !@chgrp($sessionFile, $sessionGroup)
-        || !@chmod($sessionFile, 0660)) {
-        @unlink($sessionFile);
-        throw new RuntimeException('signon_session_permissions_failed');
+    try {
+        $stat = brokerLstat($privateFile);
+        if (($stat['mode'] & 0170000) !== 0100000
+            || (int)$stat['uid'] !== 0
+            || (($stat['mode'] & 0077) !== 0)
+            || !@chgrp($privateFile, $sessionGroup)
+            || !@chmod($privateFile, 0660)) {
+            throw new RuntimeException('signon_session_permissions_failed');
+        }
+        $finalStat = brokerLstat($privateFile);
+        if ((int)$finalStat['uid'] !== 0
+            || (int)$finalStat['gid'] !== $sessionGroup
+            || (($finalStat['mode'] & 0777) !== 0660)) {
+            throw new RuntimeException('signon_session_permissions_failed');
+        }
+        if (file_exists($publicFile) || is_link($publicFile) || !@link($privateFile, $publicFile)) {
+            throw new RuntimeException('signon_session_publish_failed');
+        }
+        @unlink($privateFile);
+        return $publicFile;
+    } catch (Throwable $e) {
+        @unlink($privateFile);
+        @unlink($publicFile);
+        throw $e;
     }
-    $finalStat = brokerLstat($sessionFile);
-    if ((int)$finalStat['uid'] !== 0
-        || (int)$finalStat['gid'] !== $sessionGroup
-        || (($finalStat['mode'] & 0777) !== 0660)) {
-        @unlink($sessionFile);
-        throw new RuntimeException('signon_session_permissions_failed');
-    }
-    return $sessionFile;
 }
 
 if (PHP_SAPI !== 'cli' || !function_exists('posix_geteuid') || posix_geteuid() !== 0) {
