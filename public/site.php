@@ -30,8 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $domain = DomainName::normalize($raw);
         $domainType = (string)($_POST['domain_type'] ?? 'alias');
         $validType = in_array($domainType, ['alias', 'subdomain'], true);
-        $valid = $domain !== null;
-            && preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/D', $domain);
+        $valid = $domain !== null && preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/D', $domain) === 1;
         if (!$validType) {
             $error = 'Select whether this domain is an alias or subdomain.';
         } elseif (!$valid) {
@@ -40,18 +39,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'This is already the website primary domain.';
         } else {
             try {
+                $pdo->beginTransaction();
                 $insert = $pdo->prepare("INSERT INTO website_domains (website_id, domain, domain_type, is_primary, status) VALUES (:website_id, :domain, :domain_type, 0, 'pending')");
                 $insert->execute(['website_id' => $id, 'domain' => $domain, 'domain_type' => $domainType]);
                 $audit = $pdo->prepare("INSERT INTO audit_events (admin_id, event_type, target_type, target_id, details_json) VALUES (:admin_id, 'website.domain.added', 'website', :target_id, :details)");
                 $audit->execute(['admin_id' => (int)$admin['id'], 'target_id' => (string)$id, 'details' => json_encode(['domain' => $domain, 'domain_type' => $domainType], JSON_THROW_ON_ERROR)]);
+                $pdo->commit();
                 $success = 'Domain added. DNS and web-server configuration have not been changed yet.';
-            } catch (PDOException $e) {
-                if ((string)$e->getCode() === '23000') {
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                if ($e instanceof PDOException && (string)$e->getCode() === '23000') {
                     $error = 'That domain is already assigned to a website.';
                 } else {
                     error_log('SPanel domain insert failed: ' . $e->getMessage());
                     $error = 'The domain could not be saved. Check the panel logs.';
                 }
+            }
             }
         }
     } else {
