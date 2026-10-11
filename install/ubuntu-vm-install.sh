@@ -337,13 +337,11 @@ server {
         add_header Cache-Control "no-store, private" always;
         add_header Referrer-Policy "no-referrer" always;
         root /usr/share;
-        try_files \$uri =404;
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/run/php/spanel-pma.sock;
     }
 
     location ~ \.php$ {
-        try_files \$uri =404;
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/run/php/spanel.sock;
     }
