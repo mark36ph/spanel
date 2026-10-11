@@ -27,7 +27,12 @@ FLUSH PRIVILEGES;
 EXIT;
 ```
 
-From the repository root:
+From the repository root, run the read-only preflight first. It checks PHP/extensions, local configuration, database connectivity and migration drift without changing the system:
+```bash
+php bin/doctor.php
+```
+
+Then initialise the database:
 ```bash
 mariadb -u spanel_app -p spanel < database/schema.sql
 cp config/config.example.php config/config.local.php
