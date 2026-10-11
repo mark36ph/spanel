@@ -35,7 +35,7 @@ fi
 info "Installing panel runtime packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y nginx mariadb-server php-fpm php-cli php-mysql php-mbstring php-xml php-curl php-intl git ca-certificates tar openssl
+apt-get install -y nginx mariadb-server php-fpm php-cli php-mysql php-mbstring php-xml php-curl php-intl git ca-certificates tar openssl curl
 
 PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
 PHP_VERSION_ID="$(php -r 'echo PHP_VERSION_ID;')"
@@ -137,6 +137,12 @@ systemctl reload nginx
 info "Creating the first administrator"
 printf 'Create your SPanel administrator now. Use a unique password of at least 14 characters.\n'
 sudo -u "$APP_USER" php "$APP_DIR/bin/create-admin.php"
+
+info "Checking the local HTTP/PHP-FPM path"
+if ! curl --fail --silent --show-error http://127.0.0.1/login.php -o /dev/null; then
+    fail "SPanel did not return HTTP success from /login.php. Inspect nginx and PHP-FPM logs before retrying."
+fi
+printf 'HTTP login page returned successfully.\n'
 
 info "Running the read-only preflight"
 sudo -u "$APP_USER" php "$APP_DIR/bin/doctor.php"
