@@ -7,7 +7,20 @@
 - NAT networking with port forwarding for development
 - Take a VM snapshot after OS updates
 
-## Install packages
+## Recommended: first-install bootstrap
+
+On a clean Ubuntu Server 24.04 LTS VM, clone or copy the SPanel repository, change to its root directory, review the installer, then run:
+
+```bash
+sudo bash install/ubuntu-vm-install.sh
+```
+
+The script installs the panel runtime, creates a generated database password and private configuration, applies the schema/migrations, registers the VM as the local server, configures Nginx and PHP-FPM, and prompts for the first administrator. It refuses to overwrite an existing `/opt/spanel` installation or existing SPanel Nginx site. It has not yet been validated on a real VM; use a disposable snapshot.
+
+In VirtualBox NAT port forwarding, map host TCP port **8081** to guest TCP port **80**. Then open `http://127.0.0.1:8081` on Windows.
+
+## Manual development setup (alternative)
+
 ```bash
 sudo apt update
 sudo apt install -y nginx mariadb-server php-fpm php-mysql php-cli php-mbstring php-xml php-curl git unzip
