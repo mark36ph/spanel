@@ -24,6 +24,21 @@ $labels = [
     'worker-timer' => 'Provisioning worker timer',
     'disk-space' => 'Disk space',
 ];
+if ($checks) {
+    $indexedChecks = [];
+    foreach ($checks as $check) {
+        $indexedChecks[(string)$check['service_key']] = $check;
+    }
+    $checks = [];
+    foreach ($labels as $key => $_label) {
+        $checks[] = $indexedChecks[$key] ?? [
+            'service_key' => $key,
+            'status' => 'unknown',
+            'details' => 'No health result has been recorded for this component yet.',
+            'checked_at' => 'Never',
+        ];
+    }
+}
 $hasCritical = false;
 $hasWarning = false;
 $now = time();
