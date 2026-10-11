@@ -90,8 +90,11 @@ find "$APP_DIR" -type f -exec chmod 0640 {} +
 info "Checking PHP syntax for the website and signon entry points"
 for php_file in \
     app/Security.php \
+    app/Auth.php \
     app/PhpMyAdminHandoff.php \
     public/site.php \
+    public/login.php \
+    public/logout.php \
     public/phpmyadmin-launch.php \
     public/phpmyadmin-logout.php \
     public/phpmyadmin-auth-check.php \
