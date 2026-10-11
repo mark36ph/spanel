@@ -248,6 +248,7 @@ try {
 
     $consumed = PhpMyAdminHandoff::consume($pdo, $request['token'], $request['admin_id']);
     if (!is_array($consumed)
+        || (int)$consumed['admin_id'] !== $request['admin_id']
         || (int)$consumed['website_database_id'] !== $request['database_id']
         || $consumed['remote_addr'] !== $request['remote_addr']) {
         throw new RuntimeException('handoff_invalid_or_expired');
@@ -280,6 +281,15 @@ try {
 
     $key = brokerReadKey();
     $password = brokerDecryptPassword((int)$row['website_id'], $key);
+    $testDsn = sprintf('mysql:host=localhost;port=3306;dbname=%s;charset=utf8mb4', $row['database_name']);
+    $testConnection = new PDO($testDsn, (string)$row['database_user'], $password, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::ATTR_TIMEOUT => 5,
+    ]);
+    $testConnection->query('SELECT 1')->fetchColumn();
+    unset($testConnection);
     $sessionId = $request['signon_session_id'];
     $sessionFile = brokerCreateSignonSession($sessionId, (string)$row['database_user'], $password);
     unset($password, $key);
