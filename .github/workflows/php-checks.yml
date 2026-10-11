@@ -31,7 +31,9 @@ jobs:
           while IFS= read -r -d '' file; do
             php -l "$file"
           done < <(find app bin config database public tests -type f -name '*.php' -print0)
-      - name: Check Ubuntu installer shell syntax\n        run: bash -n install/ubuntu-vm-install.sh\n      - name: Run operation queue validation tests
+      - name: Check Ubuntu installer shell syntax
+        run: bash -n install/ubuntu-vm-install.sh
+      - name: Run operation queue validation tests
         run: php tests/operation_queue_validation.php
       - name: Run domain name validation tests
         run: php tests/domain_name_validation.php
