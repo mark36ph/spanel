@@ -4,6 +4,7 @@ $items = [
     ['sites', '◎', 'Websites', '/sites.php'],
     ['servers', '▦', 'Servers', '/servers.php'],
     ['operations', '◷', 'Operations', '/operations.php'],
+    ['audit', '≡', 'Audit log', '/audit.php'],
     ['email', '✉', 'Email accounts', '#'],
     ['databases', '▤', 'Databases', '#'],
     ['cron', '◷', 'Cron jobs', '#'],

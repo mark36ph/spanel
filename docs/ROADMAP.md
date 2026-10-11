@@ -38,7 +38,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [x] Add the first forward migration for `website_domains`, preserving `websites.domain` for compatibility and refusing invalid/normalized-colliding domains or websites without server assignments. [ ] Run and test the migration against fresh and representative legacy databases in the Ubuntu VM.
 - [x] Add server inventory UI and metadata-only server registration, and add local-server registration to the installer draft. [ ] Verify registration in the Ubuntu VM.
 - [ ] Track server health, maintenance state, capabilities and panel/agent version.
-- [x] Add server inventory, website inventory links and per-website management overview. [ ] Add health checks and inventory filters.
+- [x] Add server inventory, website inventory links and per-website management overview. [x] Add website inventory search/status filters and latest-operation visibility. [ ] Add server health checks and server inventory filters.
 - [ ] Support adding more servers later without changing the website model.
 
 ## Stage 4 — Safe website provisioning
@@ -61,7 +61,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Require confirmation and a backup/retention decision before destructive actions.
 
 ## Stage 5 — Per-website management
-- [ ] Give each website its own overview and contextual sidebar.
+- [x] Give each website a management overview with recent operation history and contextual links. [ ] Add a dedicated contextual sidebar as website modules are implemented.
 - [x] List primary domains, add aliases/subdomains with type validation, and remove pending non-primary domain records with audit logging. [ ] Add domain editing, DNS preflight and actual web-server configuration.
 - [ ] Create/manage website databases and least-privilege database users during and after website creation.
 - [x] Add strict reusable DNS-domain normalization and CI tests; runtime verification remains outstanding.
@@ -77,7 +77,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Back up panel metadata, website files and website databases with retention settings.
 - [ ] Test restores, not just backup creation.
 - [ ] Add email accounts only after reviewing deliverability, spam prevention, SPF, DKIM, DMARC and abuse controls.
-- [ ] Add health monitoring, service status, alerts and audit log views.
+- [ ] Add health monitoring, service status and alerts. [x] Add a read-only audit log UI with exact event/target filters and pagination. [ ] Add integration tests and verify audit coverage/retention in the Ubuntu VM.
 
 ## Stage 7 — Panel updates from GitHub
 - [ ] Add installed-version and available-version display.
