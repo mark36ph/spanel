@@ -16,6 +16,18 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::verify($_POST['_csrf'] ?? null);
     if (Auth::attempt((string)($_POST['email'] ?? ''), (string)($_POST['password'] ?? ''))) {
+        // Require a fresh database handoff after each SPanel login; do not
+        // revive an old phpMyAdmin browser session after logout/deactivation.
+        $securePmaCookie = str_starts_with((string)($config['app']['base_url'] ?? ''), 'https://');
+        foreach (['spanel_pma_signon', 'phpMyAdmin'] as $cookieName) {
+            setcookie($cookieName, '', [
+                'expires' => time() - 3600,
+                'path' => '/phpmyadmin/',
+                'secure' => $securePmaCookie,
+                'httponly' => true,
+                'samesite' => 'Strict',
+            ]);
+        }
         header('Location: /dashboard.php'); exit;
     }
     usleep(250000);
