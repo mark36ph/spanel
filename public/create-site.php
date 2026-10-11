@@ -8,7 +8,7 @@ require_once dirname(__DIR__) . '/app/OperationQueue.php';
 require_once dirname(__DIR__) . '/app/DomainName.php';
 $admin = Auth::requireLogin();
 $pdo = Database::connection();
-$servers = $pdo->query("SELECT id, name, hostname, status, is_local FROM servers ORDER BY is_local DESC, name")->fetchAll();
+$servers = $pdo->query("SELECT id, name, hostname, status, is_local FROM servers WHERE is_local = 1 ORDER BY name")->fetchAll();
 $error = '';
 $createdId = 0;
 
@@ -78,7 +78,7 @@ renderHeader('Create website', 'sites');
 ?>
 <div class="welcome-row"><div><p class="muted">WEBSITE SETUP</p><h2>Register a website</h2><p class="muted">Prepare the website and queue provisioning for the operations service.</p></div><a class="secondary-button link-button" href="/sites.php">← All websites</a></div>
 <?php if ($error !== ''): ?><div class="alert"><?= Security::escape($error) ?></div><?php endif; ?>
-<?php if (!$servers): ?><div class="empty-state"><div class="empty-icon">▦</div><h3>Register a server first</h3><p>A website must belong to a hosting server. Register your development server in the Servers section first.</p><a class="primary-button link-button" href="/servers.php">Open servers →</a></div>
+<?php if (!$servers): ?><div class="empty-state"><div class="empty-icon">▦</div><h3>Local hosting server not configured</h3><p>The installer must register this machine as the local hosting server. Remote server records cannot provision websites until secure remote agents are implemented.</p><a class="secondary-button link-button" href="/servers.php">View servers →</a></div>
 <?php else: ?>
 <div class="login-card"><form method="post" class="form-stack">
 <input type="hidden" name="_csrf" value="<?= Security::escape(Csrf::token()) ?>">
