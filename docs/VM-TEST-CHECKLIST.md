@@ -56,16 +56,21 @@ On the Windows host, open `http://127.0.0.1:8081`.
 - [ ] Create one disposable test website using a reserved test domain such as `vm-test.example.test`.
 - [ ] Confirm a website record and a `website.provision` operation appear.
 - [ ] Confirm the operation is auditable and visible on the Operations page.
-- [ ] **Do not expect a live website yet.** The privileged `spanel-ops` helper is intentionally missing; the worker should fail closed instead of making server changes. Do not repeatedly retry the same job.
+- [ ] Before enabling the helper, confirm a queued job fails closed and no host resources are changed.
+- [ ] Build/install the initial helper only by following `operations-service/PROVISIONING.md`; install the exact sudoers rule and validate it with `visudo -cf`.
+- [ ] Create a disposable test website with database creation disabled. Confirm the worker creates its Linux user, isolated document root, PHP-FPM pool and Nginx site, then verify the URL from the VM.
+- [ ] Confirm database-enabled requests are rejected and no database/user is created; database provisioning is not implemented in this first helper.
+- [ ] Test invalid domains, unsupported PHP versions, pre-existing usernames/paths, PHP-FPM config failure, Nginx config failure and reload failure. Record leftovers and confirm rollback does not remove pre-existing resources.
+- [ ] Do not retry a failed/rollback-required job before manually reconciling system state.
 
 ## 6. Verify the read-only operations service (after building it in the VM)
 
-- [ ] Build `operations-service` with the Go compiler; do not build or enable any write-capable service.
+- [ ] Build the read-only `operations-service` with the Go compiler; keep it separate from the privileged provisioner.
 - [ ] Install the service and socket units using `operations-service/README.md`; confirm the socket is `root:spanel` mode `0660`.
 - [ ] Confirm the daemon runs with a dynamic unprivileged identity and does not run as root.
 - [ ] Send a valid `website.preflight` request from the panel account and confirm the returned facts are well-formed.
 - [ ] Send malformed JSON, extra fields, an oversized frame, and an unsupported operation; confirm each is rejected without changing server state.
-- [ ] Confirm `website.provision` returns `operation_not_enabled` and does not create users, directories, configs, databases, or reload services.
+- [ ] Confirm the read-only socket service rejects `website.provision` with `operation_not_enabled` and does not change server state.
 - [ ] Confirm the preflight clearly reports Nginx validation and DNS as unknown, and does not confuse a listening MariaDB port with verified credentials/permissions.
 - [ ] Review service logs and confirm they contain no secrets.
 
