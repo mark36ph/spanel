@@ -10,7 +10,11 @@ final class DomainName
 {
     public static function normalize(string $input): ?string
     {
-        $domain = strtolower(rtrim(trim($input), '.'));
+        $input = trim($input);
+        if (str_ends_with($input, '..')) {
+            return null;
+        }
+        $domain = strtolower(str_ends_with($input, '.') ? substr($input, 0, -1) : $input);
         if ($domain === '' || strlen($domain) > 253
             || filter_var($domain, FILTER_VALIDATE_IP) !== false
             || preg_match('/[^a-z0-9.-]/', $domain)) {
