@@ -5,14 +5,56 @@ $config = require dirname(__DIR__) . '/config/config.local.php';
 Security::startSession($config);
 require_once dirname(__DIR__) . '/app/View.php';
 Auth::requireLogin();
-$jobs = Database::connection()->query("SELECT j.id, j.operation_type, j.status, j.attempt_count, j.created_at, j.started_at, j.finished_at, j.error_code, j.error_summary, w.name AS website_name, s.name AS server_name FROM operation_jobs j LEFT JOIN websites w ON w.id = j.website_id LEFT JOIN servers s ON s.id = j.server_id ORDER BY j.id DESC LIMIT 100")->fetchAll();
+
+$pdo = Database::connection();
+$allowedStatuses = ['queued', 'running', 'succeeded', 'failed', 'rollback_required', 'cancelled'];
+$statusFilter = trim((string)($_GET['status'] ?? ''));
+if ($statusFilter !== '' && !in_array($statusFilter, $allowedStatuses, true)) {
+    $statusFilter = '';
+}
+$sql = "SELECT j.id, j.operation_type, j.status, j.attempt_count, j.created_at, j.started_at,
+               j.finished_at, j.error_code, j.error_summary, j.result_json,
+               w.name AS website_name, w.domain AS website_domain, s.name AS server_name
+        FROM operation_jobs j
+        LEFT JOIN websites w ON w.id = j.website_id
+        LEFT JOIN servers s ON s.id = j.server_id";
+if ($statusFilter !== '') {
+    $sql .= ' WHERE j.status = :status';
+}
+$sql .= ' ORDER BY j.id DESC LIMIT 100';
+$stmt = $pdo->prepare($sql);
+if ($statusFilter !== '') {
+    $stmt->execute(['status' => $statusFilter]);
+} else {
+    $stmt->execute();
+}
+$jobs = $stmt->fetchAll();
+
+$rollbackCount = (int)$pdo->query("SELECT COUNT(*) FROM operation_jobs WHERE status = 'rollback_required'")->fetchColumn();
+$queuedCount = (int)$pdo->query("SELECT COUNT(*) FROM operation_jobs WHERE status = 'queued'")->fetchColumn();
+
 renderHeader('Operations', 'operations');
 ?>
-<div class="welcome-row"><div><p class="muted">BACKGROUND TASKS</p><h2>Operations queue</h2><p class="muted">Provisioning and maintenance work is recorded here for audit and recovery.</p></div></div>
-<div class="notice"><strong>Worker not enabled yet</strong><p>Jobs can be queued and inspected, but no privileged worker runs them yet. This deliberately prevents a web request from executing server commands.</p></div>
-<div class="section-heading"><div><h3>Recent jobs</h3><p class="muted">Showing up to 100 latest operations.</p></div></div>
-<div class="site-table-wrap"><table class="site-table"><thead><tr><th>Job</th><th>Website / server</th><th>Status</th><th>Attempts</th><th>Created</th><th>Details</th></tr></thead><tbody>
-<?php foreach ($jobs as $job): ?><tr><td><strong>#<?= (int)$job['id'] ?> · <?= Security::escape($job['operation_type']) ?></strong></td><td><?= Security::escape($job['website_name'] ?? '—') ?><small><?= Security::escape($job['server_name'] ?? 'No server') ?></small></td><td><span class="status-badge"><?= Security::escape($job['status']) ?></span></td><td><?= (int)$job['attempt_count'] ?></td><td><?= Security::escape($job['created_at']) ?></td><td><?php if ($job['error_code']): ?><strong><?= Security::escape($job['error_code']) ?></strong><small><?= Security::escape($job['error_summary'] ?? '') ?></small><?php else: ?><span class="muted">No errors recorded</span><?php endif; ?></td></tr><?php endforeach; ?>
-<?php if (!$jobs): ?><tr><td colspan="6">No operations have been queued.</td></tr><?php endif; ?>
+<div class="welcome-row"><div><p class="muted">BACKGROUND TASKS</p><h2>Operations queue</h2><p class="muted">Inspect queued work, completed results and recovery-required jobs.</p></div></div>
+<div class="stat-grid">
+<article class="stat-card"><div class="stat-top"><span>Queued</span><span class="stat-icon amber">◷</span></div><strong><?= $queuedCount ?></strong><small>Waiting for a worker run</small></article>
+<article class="stat-card"><div class="stat-top"><span>Recovery required</span><span class="stat-icon">!</span></div><strong><?= $rollbackCount ?></strong><small>Inspect before retrying</small></article>
+</div>
+<?php if ($rollbackCount > 0): ?><div class="alert"><strong>Manual recovery required.</strong> One or more jobs may have changed server resources without a confirmed metadata commit. Inspect the affected server before retrying or deleting anything.</div><?php endif; ?>
+<div class="notice"><strong>Development limitation</strong><p>The CLI worker and strict request contract are present, but the root-owned restricted operations helper is not installed. Provisioning therefore fails closed and must not be treated as operational yet.</p></div>
+<div class="section-heading"><div><h3>Recent jobs</h3><p class="muted">Showing up to 100 jobs<?= $statusFilter !== '' ? ' with status ' . Security::escape($statusFilter) : '' ?>.</p></div></div>
+<div class="login-card"><form method="get" class="form-stack"><label>Filter by status<select name="status"><option value="">All statuses</option><?php foreach ($allowedStatuses as $status): ?><option value="<?= Security::escape($status) ?>" <?= $statusFilter === $status ? 'selected' : '' ?>><?= Security::escape(str_replace('_', ' ', ucfirst($status))) ?></option><?php endforeach; ?></select></label><button class="primary-button" type="submit">Apply filter</button><?php if ($statusFilter !== ''): ?><a class="secondary-button link-button" href="/operations.php">Clear filter</a><?php endif; ?></form></div>
+<div class="site-table-wrap"><table class="site-table"><thead><tr><th>Job</th><th>Website / server</th><th>Status</th><th>Attempts</th><th>Timeline</th><th>Result / details</th></tr></thead><tbody>
+<?php foreach ($jobs as $job): ?>
+<tr>
+<td><strong>#<?= (int)$job['id'] ?> · <?= Security::escape($job['operation_type']) ?></strong></td>
+<td><?= Security::escape($job['website_name'] ?? '—') ?><small><?= Security::escape($job['website_domain'] ?? '') ?></small><small><?= Security::escape($job['server_name'] ?? 'No server') ?></small></td>
+<td><span class="status-badge"><?= Security::escape(str_replace('_', ' ', $job['status'])) ?></span></td>
+<td><?= (int)$job['attempt_count'] ?></td>
+<td><small>Created: <?= Security::escape($job['created_at'] ?? '—') ?></small><small>Started: <?= Security::escape($job['started_at'] ?? '—') ?></small><small>Finished: <?= Security::escape($job['finished_at'] ?? '—') ?></small></td>
+<td><?php if ($job['error_code']): ?><strong><?= Security::escape($job['error_code']) ?></strong><small><?= Security::escape($job['error_summary'] ?? '') ?></small><?php elseif ($job['result_json']): ?><small><?= Security::escape(mb_substr((string)$job['result_json'], 0, 500)) ?></small><?php else: ?><span class="muted">No result recorded</span><?php endif; ?></td>
+</tr>
+<?php endforeach; ?>
+<?php if (!$jobs): ?><tr><td colspan="6">No operations match this filter.</td></tr><?php endif; ?>
 </tbody></table></div>
 <?php renderFooter(); ?>
