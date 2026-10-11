@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $databaseStmt = $pdo->prepare(
                 'SELECT d.id, d.website_id, d.server_id, d.database_name, d.database_user, d.status, d.secret_ref,
-                        w.status AS website_status, w.server_id AS website_server_id, s.is_local
+                        w.status AS website_status, w.server_id AS website_server_id, s.is_local, s.status AS server_status
                  FROM website_databases d
                  INNER JOIN websites w ON w.id = d.website_id
                  INNER JOIN servers s ON s.id = d.server_id
@@ -86,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 || $database['website_status'] !== 'active'
                 || $database['status'] !== 'active'
                 || (int)$database['is_local'] !== 1
+                || $database['server_status'] !== 'online'
                 || (int)$database['server_id'] !== (int)$database['website_server_id']
                 || $database['database_name'] !== $expectedName
                 || $database['database_user'] !== $expectedUser
@@ -151,7 +152,7 @@ $domains = $pdo->prepare('SELECT domain, domain_type, is_primary, status, create
 $domains->execute(['id' => $id]);
 $domains = $domains->fetchAll();
 $dbs = $pdo->prepare(
-    'SELECT d.id, d.server_id, d.database_name, d.database_user, d.status, d.secret_ref, d.created_at, s.is_local
+    'SELECT d.id, d.server_id, d.database_name, d.database_user, d.status, d.secret_ref, d.created_at, s.is_local, s.status AS server_status
      FROM website_databases d LEFT JOIN servers s ON s.id = d.server_id
      WHERE d.website_id = :id ORDER BY d.database_name ASC'
 );
@@ -185,6 +186,6 @@ renderHeader((string)$website['name'], 'sites');
 <div class="section-heading"><div><h3>Add domain or subdomain</h3><p class="muted">The domain must not already belong to another website.</p></div></div>
 <div class="login-card"><form method="post" class="form-stack"><input type="hidden" name="_csrf" value="<?= Security::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="add_domain"><label>Domain name<input name="domain" placeholder="www.example.com" maxlength="253" required pattern="(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*"></label><label>Domain type<select name="domain_type"><option value="alias">Alias</option><option value="subdomain">Subdomain</option></select></label><button class="primary-button" type="submit">Add domain</button></form></div>
 <div class="section-heading"><div><h3>Databases</h3><p class="muted">Databases use dedicated local-only users and encrypted root-only credential storage. Open phpMyAdmin uses a short-lived signon handoff.</p></div></div>
-<?php if ($databases): ?><div class="site-table-wrap"><table class="site-table"><thead><tr><th>Database</th><th>Username</th><th>Status</th><th>Created</th><th>Tools</th></tr></thead><tbody><?php foreach ($databases as $db): ?><tr><td><strong><?= Security::escape($db['database_name']) ?></strong></td><td><?= Security::escape($db['database_user']) ?></td><td><span class="status-badge"><?= Security::escape($db['status'] ?? 'active') ?></span></td><td><?= Security::escape($db['created_at']) ?></td><td><?php if ($website['status'] === 'active' && $db['status'] === 'active' && (int)$db['is_local'] === 1 && (int)$db['server_id'] === (int)$website['server_id'] && $db['database_name'] === 'spw_' . $id && $db['database_user'] === 'spu_' . $id && $db['secret_ref'] === 'website-db:' . $id): ?><form method="post" action="/site.php?id=<?= (int)$id ?>" class="inline-form"><input type="hidden" name="_csrf" value="<?= Security::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="open_phpmyadmin"><input type="hidden" name="database_id" value="<?= (int)$db['id'] ?>"><button class="secondary-button" type="submit">Open phpMyAdmin ↗</button></form><?php else: ?><span class="muted">Unavailable until database setup is complete</span><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div><?php else: ?><div class="empty-state"><div class="empty-icon">▤</div><h3>No databases tracked</h3><p>Choose “Create a website database” in the website wizard, or create one when that management action is added.</p></div><?php endif; ?>
+<?php if ($databases): ?><div class="site-table-wrap"><table class="site-table"><thead><tr><th>Database</th><th>Username</th><th>Status</th><th>Created</th><th>Tools</th></tr></thead><tbody><?php foreach ($databases as $db): ?><tr><td><strong><?= Security::escape($db['database_name']) ?></strong></td><td><?= Security::escape($db['database_user']) ?></td><td><span class="status-badge"><?= Security::escape($db['status'] ?? 'active') ?></span></td><td><?= Security::escape($db['created_at']) ?></td><td><?php if ($website['status'] === 'active' && $db['status'] === 'active' && (int)$db['is_local'] === 1 && $db['server_status'] === 'online' && (int)$db['server_id'] === (int)$website['server_id'] && $db['database_name'] === 'spw_' . $id && $db['database_user'] === 'spu_' . $id && $db['secret_ref'] === 'website-db:' . $id): ?><form method="post" action="/site.php?id=<?= (int)$id ?>" class="inline-form"><input type="hidden" name="_csrf" value="<?= Security::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="open_phpmyadmin"><input type="hidden" name="database_id" value="<?= (int)$db['id'] ?>"><button class="secondary-button" type="submit">Open phpMyAdmin ↗</button></form><?php else: ?><span class="muted">Unavailable until database setup is complete</span><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div><?php else: ?><div class="empty-state"><div class="empty-icon">▤</div><h3>No databases tracked</h3><p>Choose “Create a website database” in the website wizard, or create one when that management action is added.</p></div><?php endif; ?>
 <div class="notice"><strong>Development mode</strong><p>Database access uses phpMyAdmin's supported signon authentication and a short-lived server-side handoff. Keep this VM private; DNS automation and SSL remain disabled until their acceptance checks pass.</p></div>
 <?php renderFooter(); ?>
