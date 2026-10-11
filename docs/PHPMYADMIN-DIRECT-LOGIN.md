@@ -9,7 +9,7 @@ The link is available only to an authenticated SPanel administrator authorized t
 ## Required flow
 
 1. During database creation, SPanel generates a strong random database password and provisions the database/user with least-privilege grants.
-2. The password is delivered once to a restricted secrets store outside the website document root and outside the panel metadata database. The secret is encrypted at rest, and its decryption key is held separately in root-readable configuration or another protected secret facility.
+2. **Implemented in the current provisioner:** the password is generated inside the root-owned helper and stored as authenticated AES-GCM ciphertext outside the web root in `/var/lib/spanel/secrets`. The decryption key is in `/etc/spanel/database-secrets.key`; both are root-owned and inaccessible to the panel account. The credential broker that permits phpMyAdmin to retrieve a credential for an authorized one-time handoff is not implemented yet.
 3. The database metadata row stores only the database name, username, owning website/server, status and a non-secret secret reference.
 4. When the administrator clicks **Open phpMyAdmin**, SPanel re-checks the administrator session, CSRF/intent as appropriate, website/database ownership and server status.
 5. SPanel creates a cryptographically random, short-lived, single-use handoff token. Store only its hash with the intended database/user, requesting admin, expiry and consumed state.
@@ -24,9 +24,9 @@ The link is available only to an authenticated SPanel administrator authorized t
 - Use HTTPS and secure, HttpOnly, appropriately SameSite cookies; validate same-origin return targets to prevent open redirects.
 - Restrict the launch endpoint to authenticated and authorized SPanel administrators. Require re-authentication for privileged administrator-level database access where appropriate.
 - The website database user must only access that website's database(s). It must not have global privileges or access to other websites' databases.
-- Store the credential in a root-owned secrets store outside the web root, encrypted at rest with a separately protected key; the web application must not have unrestricted filesystem access. A narrowly scoped privileged broker may perform the handoff.
+- The root-only encrypted secret store and key are implemented by the restricted website/database helper. The controlled credential-retrieval broker and phpMyAdmin authentication adapter remain outstanding; the web application must not be given direct read access to the key or encrypted files.
 - Handoff tokens must be random, single-use, short-lived, bound to the intended admin/database and protected against replay and CSRF. Keep the raw token only in server-side session storage during the launch flow; persist only its hash in MariaDB.
-- If the secret store, SPanel authorization, token validation or phpMyAdmin integration is unavailable, fail closed and show a useful error. Do not silently fall back to an unauthenticated phpMyAdmin login.
+- Until the credential broker and phpMyAdmin integration are implemented and tested, keep the **Open phpMyAdmin** action disabled. If the secret store, SPanel authorization, token validation or phpMyAdmin integration is unavailable, fail closed and show a useful error. Do not silently fall back to an unauthenticated phpMyAdmin login.
 - phpMyAdmin should be installed once per hosting server and kept patched. Use HTTPS and, where practical, restrict access by VPN/IP/firewall.
 - Provide a separate explicit administrator database access path if needed. Do not silently elevate the website user to global database privileges.
 
