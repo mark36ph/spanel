@@ -143,6 +143,9 @@ if ! visudo -cf /etc/sudoers.d/spanel-ops; then
 fi
 [[ "$(stat -c '%U:%G:%a' /usr/local/sbin/spanel-ops)" == "root:root:755" ]] || fail "Restricted helper ownership or permissions are unexpected."
 [[ "$(stat -c '%U:%G:%a' /var/lib/spanel/secrets)" == "root:root:700" ]] || fail "Database secret directory permissions are unexpected."
+install -o root -g root -m 0644 "$APP_DIR/install/systemd/spanel-worker.service" /etc/systemd/system/spanel-worker.service
+install -o root -g root -m 0644 "$APP_DIR/install/systemd/spanel-worker.timer" /etc/systemd/system/spanel-worker.timer
+systemctl daemon-reload
 printf 'Restricted helper installed; database credentials will be encrypted in a root-only store.\n'
 
 info "Configuring a dedicated PHP-FPM pool for the non-root SPanel account"
@@ -216,6 +219,10 @@ if ! curl --fail --silent --show-error http://127.0.0.1/login.php -o /dev/null; 
     fail "SPanel did not return HTTP success from /login.php. Inspect nginx and PHP-FPM logs before retrying."
 fi
 printf 'HTTP login page returned successfully.\n'
+
+info "Enabling the queued provisioning worker"
+systemctl enable --now spanel-worker.timer
+systemctl is-active --quiet spanel-worker.timer || fail "The SPanel provisioning timer did not start."
 
 # The document root must never expose application configuration or source data.
 for protected_path in /config/config.local.php /config/config.example.php /database/schema.sql /bin/doctor.php; do
