@@ -102,6 +102,9 @@ $domains = $domains->fetchAll();
 $dbs = $pdo->prepare('SELECT database_name, database_user, status, created_at FROM website_databases WHERE website_id = :id ORDER BY database_name ASC');
 $dbs->execute(['id' => $id]);
 $databases = $dbs->fetchAll();
+$operationStmt = $pdo->prepare('SELECT id, operation_type, status, error_code, error_summary, created_at, finished_at FROM operation_jobs WHERE website_id = :id ORDER BY id DESC LIMIT 10');
+$operationStmt->execute(['id' => $id]);
+$recentOperations = $operationStmt->fetchAll();
 
 renderHeader((string)$website['name'], 'sites');
 ?>
@@ -114,6 +117,10 @@ renderHeader((string)$website['name'], 'sites');
 <article class="stat-card"><div class="stat-top"><span>Hosting server</span><span class="stat-icon purple">▦</span></div><strong class="env-value"><?= Security::escape($website['server_name'] ?? 'Unassigned') ?></strong><small><?= Security::escape($website['server_hostname'] ?? 'No server assigned') ?></small></article>
 <article class="stat-card"><div class="stat-top"><span>Databases</span><span class="stat-icon amber">▤</span></div><strong><?= count($databases) ?></strong><small>Metadata records</small></article>
 </div>
+<div class="section-heading"><div><h3>Recent operations</h3><p class="muted">Latest 10 jobs for this website, including any recovery-required work.</p></div><a class="text-link" href="/operations.php">All operations →</a></div>
+<?php if ($recentOperations): ?><div class="site-table-wrap"><table class="site-table"><thead><tr><th>Job</th><th>Operation</th><th>Status</th><th>Created / finished</th><th>Result</th></tr></thead><tbody>
+<?php foreach ($recentOperations as $operation): ?><tr><td><strong>#<?= (int)$operation['id'] ?></strong></td><td><?= Security::escape($operation['operation_type']) ?></td><td><span class="status-badge status-<?= Security::escape($operation['status']) ?>"><?= Security::escape(str_replace('_', ' ', $operation['status'])) ?></span></td><td><?= Security::escape($operation['created_at']) ?><small><?= Security::escape($operation['finished_at'] ?? 'Not finished') ?></small></td><td><?php if ($operation['error_code']): ?><strong><?= Security::escape($operation['error_code']) ?></strong><small><?= Security::escape($operation['error_summary'] ?? '') ?></small><?php else: ?><span class="muted">No error recorded</span><?php endif; ?></td></tr><?php endforeach; ?>
+</tbody></table></div><?php else: ?><div class="empty-state"><h3>No operations yet</h3><p>Jobs associated with this website will appear here.</p></div><?php endif; ?>
 <div class="section-heading"><div><h3>Domains</h3><p class="muted">Domain records are stored here; DNS and Nginx are not changed by this form.</p></div></div>
 <div class="site-table-wrap"><table class="site-table"><thead><tr><th>Domain</th><th>Type</th><th>Primary</th><th>Status</th><th>Actions</th></tr></thead><tbody>
 <?php foreach ($domains as $domain): ?><tr><td><strong><?= Security::escape($domain['domain']) ?></strong></td><td><?= Security::escape($domain['domain_type']) ?></td><td><?= (int)$domain['is_primary'] === 1 ? 'Yes' : 'No' ?></td><td><span class="status-badge"><?= Security::escape($domain['status']) ?></span></td><td><?php if ((int)$domain['is_primary'] !== 1 && $domain['status'] === 'pending'): ?><form method="post"><input type="hidden" name="_csrf" value="<?= Security::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="remove_domain"><input type="hidden" name="domain" value="<?= Security::escape($domain['domain']) ?>"><button class="secondary-button" type="submit">Remove pending</button></form><?php else: ?><span class="muted">Protected</span><?php endif; ?></td></tr><?php endforeach; ?>
