@@ -12,7 +12,9 @@ Use this checklist only on a **disposable private Ubuntu Server 24.04 LTS VM**, 
 - [ ] Confirm `/etc/php/<version>/fpm/pool.d/spanel.conf` configures `user = spanel`, `group = www-data`, and `/run/php/spanel.sock`; Nginx uses that socket.
 - [ ] Confirm PHP-FPM workers for the `spanel` pool run as the non-root `spanel` user; the normal PHP-FPM master process may remain root as required by systemd.
 - [ ] Confirm the installer creates the panel DB/configuration, applies migrations, registers the local server, configures Nginx/PHP-FPM, and prompts for the administrator.
-- [ ] Confirm the installer builds and installs the root-owned `/usr/local/sbin/spanel-ops` helper and validates `/etc/sudoers.d/spanel-ops`.
+- [ ] Confirm the installer builds and installs the root-owned `/usr/local/sbin/spanel-ops` and `/usr/local/sbin/spanel-pma-credential-broker` helpers and validates `/etc/sudoers.d/spanel-ops`.
+- [ ] Confirm phpMyAdmin is installed without Apache and uses a dedicated `spanel-pma` PHP-FPM pool/socket, not the SPanel `spanel` pool.
+- [ ] Confirm `/var/lib/spanel/phpmyadmin-sessions` is `root:spanel-pma` mode `0770`, and the `spanel` account cannot list/read it.
 - [ ] Confirm `/etc/spanel/database-secrets.key` is `root:root` mode `0600`, and `/var/lib/spanel/secrets` is `root:root` mode `0700`.
 - [ ] Confirm `spanel-worker.timer` is enabled and active; its oneshot worker runs as non-root `spanel`.
 - [ ] Confirm the installer finishes its HTTP smoke test and read-only doctor check without errors.
@@ -81,7 +83,14 @@ On the Windows host, open `http://127.0.0.1:8081`.
 - [ ] Test collision handling by requesting a duplicate domain/resource/database ID and confirm existing resources are never overwritten or deleted.
 - [ ] Test invalid domains (including single-label names), unsupported PHP versions, null/wrongly typed booleans, duplicate JSON keys, trailing JSON values, pre-existing usernames/paths, PHP-FPM config failure, Nginx config failure, MariaDB failure and reload failure.
 - [ ] Confirm failures are recorded as failed or `rollback_required` and never retried automatically. Inspect any partial state manually before another attempt.
-- [ ] Confirm direct phpMyAdmin sign-on remains unavailable until its supported authentication adapter and one-time broker are implemented; database passwords must not be shown in the panel as a workaround.
+- [ ] From an active website's Databases table, click **Open phpMyAdmin** and confirm it opens phpMyAdmin authenticated as that website's database user with the correct database selected.
+- [ ] Confirm the SPanel handoff token is absent from browser URLs, HTML, JavaScript, referrers and logs; the database password must never appear in the response or panel metadata.
+- [ ] Confirm the broker response contains only `ok`, the random signon session ID and the non-secret database name; it must not contain a username/password pair or encrypted-secret contents.
+- [ ] Confirm the signon session file is root-owned, group `spanel-pma`, mode `0660`, and unreadable by `spanel`. Confirm the browser cookie is HttpOnly, SameSite=Strict, scoped to `/phpmyadmin/`, and expires after 60 seconds.
+- [ ] Confirm a consumed, expired, replayed or wrong-admin handoff fails closed. Confirm disabled admins, inactive websites/databases, remote servers and mismatched secret references are rejected.
+- [ ] Confirm phpMyAdmin logout clears the short-lived signon cookie and direct phpMyAdmin access without a valid signon session redirects to the SPanel login.
+- [ ] Confirm Website A's signon cannot access Website B's database and neither account has global grants or `GRANT OPTION`.
+- [ ] On the local HTTP-only VM, record that Secure cookies are disabled only for this private test. Do not expose it publicly; production signon requires HTTPS.
 
 
 ## 6. Verify the read-only operations service (after building it in the VM)
@@ -113,4 +122,4 @@ sudo journalctl -u spanel-worker.timer -n 100 --no-pager
 
 ## Not yet acceptance-tested
 
-The installer now builds and installs the restricted website/database helper, root-only encrypted credential store, and automatic queue timer. These features are implemented in code but not built or acceptance-tested in the Ubuntu VM yet. Direct phpMyAdmin sign-on, SSL, DNS automation, backups/restores and safe panel updates/rollback are not implemented end to end. Keep SPanel private and do not migrate Projectabe or FactBurstQuiz until installation, cross-site isolation, failure recovery and restore tests pass.
+The installer now prepares the restricted website/database helper, root-only encrypted credential store, automatic queue timer, phpMyAdmin package/configuration, isolated phpMyAdmin PHP-FPM pool and root-owned signon broker. These changes are implemented in code but not built or acceptance-tested in the Ubuntu VM yet. SSL, DNS automation, backups/restores and safe panel updates/rollback remain incomplete. Keep SPanel private and do not migrate Projectabe or FactBurstQuiz until installation, signon replay/expiry, cross-site isolation, failure recovery and restore tests pass.
