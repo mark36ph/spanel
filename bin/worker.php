@@ -47,7 +47,7 @@ function invokeOperationsHelper(array $request): array
         [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
-            2 => ['pipe', 'w'],
+            2 => ['file', '/dev/null', 'w'],
         ],
         $pipes,
         null,
@@ -58,17 +58,34 @@ function invokeOperationsHelper(array $request): array
     }
 
     $input = json_encode($request, JSON_THROW_ON_ERROR);
-    fwrite($pipes[0], $input);
+    $written = 0;
+    while ($written < strlen($input)) {
+        $count = fwrite($pipes[0], substr($input, $written));
+        if ($count === false || $count === 0) {
+            proc_terminate($process, 9);
+            fclose($pipes[0]);
+            fclose($pipes[1]);
+            proc_close($process);
+            throw new RuntimeException('Could not send the request to the restricted operations helper.');
+        }
+        $written += $count;
+    }
     fclose($pipes[0]);
     stream_set_timeout($pipes[1], 60);
     $stdout = stream_get_contents($pipes[1], 16385);
+    $streamMeta = stream_get_meta_data($pipes[1]);
+    if (($streamMeta['timed_out'] ?? false) === true
+        || !is_string($stdout)
+        || strlen($stdout) > 16384) {
+        proc_terminate($process, 9);
+        fclose($pipes[1]);
+        proc_close($process);
+        throw new RuntimeException('Restricted operations helper timed out or returned an oversized response.');
+    }
     fclose($pipes[1]);
-    // Read stderr only to drain it; never expose helper diagnostics to the UI.
-    stream_get_contents($pipes[2], 4096);
-    fclose($pipes[2]);
     $exitCode = proc_close($process);
 
-    if (!is_string($stdout) || strlen($stdout) > 16384) {
+    if (!is_string($stdout)) {
         throw new RuntimeException('Restricted operations helper returned an invalid response.');
     }
     try {
