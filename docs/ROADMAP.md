@@ -7,7 +7,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [x] Plan a multi-server architecture while starting with one Ubuntu VM.
 - [x] Document the command-line installer and safe GitHub update workflow.
 - [x] Define the security boundary: PHP-FPM is unprivileged; privileged operations use a narrow allowlist.
-- [ ] Review and finalise the database model before provisioning real sites.
+- [x] Finalise the target database model in `docs/DATABASE-DESIGN.md` before provisioning real sites (implementation and VM testing remain outstanding).
 - [x] Document the website creation wizard and initial panel navigation.
 - [x] Define the DNS approach: manual instructions and checks first; optional provider APIs later; custom nameservers are not required.
 
@@ -32,7 +32,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Document install, repair, backup and uninstall/recovery procedures.
 
 ## Stage 3 — Core data model and server inventory
-- [ ] Add versioned migrations for servers, websites, multiple domains and website-owned resources (design: `docs/ARCHITECTURE.md`).
+- [ ] Implement and test versioned migrations for servers, websites, multiple domains and website-owned resources (design: `docs/DATABASE-DESIGN.md`).
 - [ ] Register the initial VM/VPS as a hosting server.
 - [ ] Track server health, maintenance state, capabilities and panel/agent version.
 - [ ] Build server overview and website inventory filters.
