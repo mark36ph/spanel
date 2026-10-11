@@ -9,7 +9,7 @@ The installer now installs phpMyAdmin without enabling Apache, configures a dedi
 ## Handoff flow
 
 1. The authenticated administrator submits **Open phpMyAdmin** from a website's Databases table. SPanel validates CSRF, website/database ownership, active status, local server assignment and the expected database/user identifiers.
-2. SPanel generates a random 256-bit handoff token, stores only its SHA-256 hash in `phpmyadmin_handoffs`, and keeps the raw token in the server-side SPanel session for at most 60 seconds.
+2. SPanel generates a random 256-bit handoff token, stores only its SHA-256 hash in `phpmyadmin_handoffs`, and keeps the raw token only in the server-side SPanel session. The database expires it after 60 seconds; the launch endpoint removes the session copy when used, and SPanel clears stale copies on the next session request.
 3. The browser is redirected to a same-origin launch endpoint. It revalidates the SPanel login, consumes the pending session entry and sends a bounded JSON request to the fixed root-owned broker through an exact sudoers rule. The token is not included in the redirect URL.
 4. The broker atomically consumes the token, verifies the administrator remains active, checks that the database and website are active and belong to the local server, validates the non-secret metadata reference, and confirms the token's client address binding.
 5. The broker decrypts the AES-256-GCM credential in memory and writes the signon values to a short-lived PHP session file under `/var/lib/spanel/phpmyadmin-sessions`. The file is root-owned, group-readable/writable only by `spanel-pma`, and mode `0660`. The panel account cannot read the directory.
