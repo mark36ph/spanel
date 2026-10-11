@@ -43,7 +43,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 ## Stage 4 — Safe website provisioning
 - [x] Add the initial `operation_jobs` table migration for queued/running/succeeded/failed/rollback-required/cancelled work.
 - [x] Add an allowlisted `OperationQueue` service and CI validation tests for the website provisioning payload.
-- [x] Add a CLI-only, advisory-lock-protected worker that checks job ownership, bounds helper output/time and records database metadata only after a matching helper response. Uncertain post-invocation failures are marked `rollback_required`. [ ] Run worker tests in the Ubuntu VM.
+- [x] Add a CLI-only, advisory-lock-protected worker that checks job ownership, bounds helper output/time and records database metadata only after a matching helper response. Uncertain post-invocation failures are marked `rollback_required`. [x] Add status filters and recovery-required visibility to the operations page. [ ] Run worker tests in the Ubuntu VM.
 - [x] Add an exact typed request/response contract and automated tests for extra fields, type mismatches, domain mismatches, PHP version and database-result mismatches.
 - [ ] Implement and security-test the root-owned restricted typed operations helper; until then, the worker fails closed and real provisioning is disabled.
 - [ ] Build a restricted local operations service; never expose arbitrary shell execution to PHP. Required contract and fail-closed behavior must be reviewed before enabling system changes.
@@ -86,7 +86,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Test failed updates, migration recovery and restore in a disposable VM snapshot.
 
 ## Stage 8 — Security and production readiness
-- [ ] Add rate limiting, security headers, secure cookies, MFA and dependency review.
+- [x] Add baseline response headers (MIME sniffing, clickjacking, referrer policy, browser permissions, private no-store caching, and HTTPS-only HSTS). [ ] Add rate limiting, review secure-cookie behavior behind proxies, MFA and dependency review.
 - [ ] Review file permissions, service privileges, secrets handling and cross-site isolation.
 - [ ] Test website isolation and the privileged service's input validation.
 - [ ] Test fresh install, reinstall, upgrade, failed upgrade, backup restore and server recovery.
