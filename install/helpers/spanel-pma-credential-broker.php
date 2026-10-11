@@ -267,7 +267,7 @@ try {
 
     $stmt = $pdo->prepare(
         'SELECT d.id, d.website_id, d.server_id, d.database_name, d.database_user, d.status AS database_status, d.secret_ref,
-                w.status AS website_status, w.server_id AS website_server_id, s.is_local, a.is_active
+                w.status AS website_status, w.server_id AS website_server_id, s.is_local, s.status AS server_status, a.is_active
          FROM website_databases d
          INNER JOIN websites w ON w.id = d.website_id
          INNER JOIN servers s ON s.id = d.server_id
@@ -280,6 +280,7 @@ try {
     if (!$row
         || (int)$row['is_active'] !== 1
         || (int)$row['is_local'] !== 1
+        || $row['server_status'] !== 'online'
         || (int)$row['server_id'] !== (int)$row['website_server_id']
         || (int)$row['website_id'] < 1
         || $row['website_status'] !== 'active'
