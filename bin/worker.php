@@ -14,6 +14,7 @@ if (PHP_SAPI !== 'cli') {
 }
 
 require_once dirname(__DIR__) . '/app/Database.php';
+require_once dirname(__DIR__) . '/app/DomainName.php';
 
 const WORKER_LOCK = 'spanel_operations_worker';
 const OPS_HELPER = '/usr/local/sbin/spanel-ops';
@@ -148,6 +149,9 @@ try {
 
         $websiteId = (int)$job['website_id'];
         $domain = (string)$job['domain'];
+        if (DomainName::normalize($domain) !== $domain) {
+            throw new RuntimeException('Website domain failed provisioning validation.');
+        }
         $response = invokeOperationsHelper([
             'operation' => 'website.provision',
             'website_id' => $websiteId,
