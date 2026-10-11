@@ -35,7 +35,11 @@ $validPending = is_array($pending)
 
 if (!$validPending || $websiteId < 1 || (int)$admin['id'] < 1) {
     session_write_close();
-    header('Location: /site.php?id=' . max(1, $websiteId) . '&pma=error', true, 303);
+    if ($websiteId > 0) {
+        header('Location: /site.php?id=' . $websiteId . '&pma=error', true, 303);
+    } else {
+        header('Location: /sites.php', true, 303);
+    }
     exit;
 }
 session_write_close();
