@@ -5,6 +5,7 @@ $config = require dirname(__DIR__) . '/config/config.local.php';
 Security::startSession($config);
 require_once dirname(__DIR__) . '/app/View.php';
 require_once dirname(__DIR__) . '/app/OperationQueue.php';
+require_once dirname(__DIR__) . '/app/DomainName.php';
 $admin = Auth::requireLogin();
 $pdo = Database::connection();
 $servers = $pdo->query("SELECT id, name, hostname, status, is_local FROM servers ORDER BY is_local DESC, name")->fetchAll();
@@ -14,14 +15,14 @@ $createdId = 0;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::verify($_POST['_csrf'] ?? null);
     $name = trim((string)($_POST['name'] ?? ''));
-    $domain = strtolower(rtrim(trim((string)($_POST['domain'] ?? '')), '.'));
+    $domain = DomainName::normalize((string)($_POST['domain'] ?? ''));
     $serverId = filter_var($_POST['server_id'] ?? null, FILTER_VALIDATE_INT);
     $phpVersion = trim((string)($_POST['php_version'] ?? ''));
     $createDatabase = ($_POST['create_database'] ?? '') === '1';
 
     if ($name === '' || mb_strlen($name) > 120) {
         $error = 'Enter a website name (up to 120 characters).';
-    } elseif (strlen($domain) > 253 || !preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/D', $domain)) {
+    } elseif ($domain === null) {
         $error = 'Enter a valid domain name.';
     } elseif (!$serverId || !in_array((int)$serverId, array_map(static fn(array $s): int => (int)$s['id'], $servers), true)) {
         $error = 'Select a registered hosting server.';
