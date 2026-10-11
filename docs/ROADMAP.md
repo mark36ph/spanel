@@ -67,8 +67,10 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [x] Add a data-only `DatabaseProvisioningPlan` that derives per-website database/user names, localhost-only account host, database-scoped grant target and a non-secret secret reference; add manual-check validation tests.
 - [x] Implement optional website database/user creation with explicit database-scoped privileges, random credentials encrypted in a root-only secret store, and metadata-only secret references. [ ] VM-test grants, encryption, rollback and cross-website isolation. Password rotation and controlled credential delivery remain planned.
 - [x] Add strict reusable DNS-domain normalization and CI tests; runtime verification remains outstanding.
-- [x] Add additive metadata and one-time phpMyAdmin handoff-token schema plus a hash-only token storage service. [ ] Add the credential broker/phpMyAdmin authentication adapter, integration tests and replay/expiry verification in the Ubuntu VM.
-- [ ] Install one phpMyAdmin instance per hosting server and add a per-database **Open phpMyAdmin** link that logs in as the correct website database user and selects that database using a short-lived, single-use secure handoff; test cross-website isolation.
+- [x] Add additive metadata and one-time phpMyAdmin handoff-token storage with hash-only token persistence.
+- [x] Add the root-owned credential broker, strict ownership checks, encrypted-secret decryption, audit event, isolated `spanel-pma` PHP-FPM pool, protected signon session directory and short-lived session cookie.
+- [x] Add phpMyAdmin package/configuration and Nginx routing to the first-install script; configure documented signon authentication and a per-database **Open phpMyAdmin** POST action.
+- [ ] VM-test phpMyAdmin signon, cookie scope/expiry, logout, token replay/expiry, disabled-admin handling, broker permissions and cross-website isolation. Direct signon must fail closed on any authorization or secret-store error.
 - [ ] Add cron jobs with validation and audit logs.
 - [ ] Add file manager with strict path containment and permission checks.
 - [ ] Add logs, disk usage and resource summaries.
