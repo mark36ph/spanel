@@ -8,7 +8,7 @@ func TestValidDomain(t *testing.T) {
 			t.Errorf("validDomain(%q) = false, want true", domain)
 		}
 	}
-	for _, domain := range []string{"", "Example.com", "example..com", "-example.com", "example-.com", "example.com.", "example.com/path", "a b.example"} {
+	for _, domain := range []string{"", "localhost", "Example.com", "example..com", "-example.com", "example-.com", "example.com.", "example.com/path", "a b.example"} {
 		if validDomain(domain) {
 			t.Errorf("validDomain(%q) = true, want false", domain)
 		}
@@ -43,5 +43,18 @@ func TestRequestValidation(t *testing.T) {
 	invalid.PHPVersion = &badPHP
 	if err := validate(invalid); err == nil {
 		t.Fatal("unsupported PHP version was accepted")
+	}
+}
+
+
+func TestRejectDuplicateJSONKeys(t *testing.T) {
+	if err := rejectDuplicateJSONKeys([]byte(`{"operation":"website.preflight","nested":{"a":1,"a":2}}`)); err == nil {
+		t.Fatal("duplicate nested JSON key was accepted")
+	}
+	if err := rejectDuplicateJSONKeys([]byte(`{"operation":"website.preflight","website_id":7}`)); err != nil {
+		t.Fatalf("valid JSON was rejected: %v", err)
+	}
+	if err := rejectDuplicateJSONKeys([]byte(`{"operation":"website.preflight"} {}`)); err == nil {
+		t.Fatal("trailing JSON value was accepted")
 	}
 }
