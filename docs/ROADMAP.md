@@ -23,7 +23,8 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 
 ## Stage 2 — Repeatable CLI installation
 - [ ] Build a reviewed installer script for a clean Ubuntu VM or VPS.
-- [ ] Preflight checks: supported OS, privileges, dependencies, network and disk space.
+- [x] Add a read-only CLI preflight for PHP/extensions, local configuration, DB connectivity, required tables and migration checksum drift. [ ] Verify its output on the Ubuntu VM.
+- [ ] Complete installer preflight checks for supported OS, privileges, dependencies, network and disk space.
 - [ ] Install and configure PHP-FPM, Nginx and MariaDB as appropriate.
 - [ ] Create restricted panel account, local configuration and least-privilege DB account.
 - [ ] Initialise the schema through versioned migrations.
@@ -55,7 +56,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 
 ## Stage 5 — Per-website management
 - [ ] Give each website its own overview and contextual sidebar.
-- [x] List primary domains and add aliases/subdomains with type validation. [ ] Add domain editing/removal, DNS preflight and actual web-server configuration.
+- [x] List primary domains, add aliases/subdomains with type validation, and remove pending non-primary domain records with audit logging. [ ] Add domain editing, DNS preflight and actual web-server configuration.
 - [ ] Create/manage website databases and least-privilege database users during and after website creation.
 - [x] Add strict reusable DNS-domain normalization and CI tests; runtime verification remains outstanding.
 - [x] Add additive metadata and one-time phpMyAdmin handoff-token schema plus a hash-only token storage service. [ ] Add integration tests and verify replay/expiry protection in the Ubuntu VM.
