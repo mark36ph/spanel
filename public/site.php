@@ -27,18 +27,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'add_domain') {
         $raw = trim((string)($_POST['domain'] ?? ''));
         $domain = strtolower(rtrim($raw, '.'));
+        $domainType = (string)($_POST['domain_type'] ?? 'alias');
+        $validType = in_array($domainType, ['alias', 'subdomain'], true);
         $valid = strlen($domain) <= 253
             && preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/D', $domain);
-        if (!$valid) {
+        if (!$validType) {
+            $error = 'Select whether this domain is an alias or subdomain.';
+        } elseif (!$valid) {
             $error = 'Enter a valid domain name using letters, numbers, dots and hyphens.';
         } elseif ($domain === strtolower((string)$website['domain'])) {
             $error = 'This is already the website primary domain.';
         } else {
             try {
-                $insert = $pdo->prepare("INSERT INTO website_domains (website_id, domain, domain_type, is_primary, status) VALUES (:website_id, :domain, 'alias', 0, 'pending')");
-                $insert->execute(['website_id' => $id, 'domain' => $domain]);
+                $insert = $pdo->prepare("INSERT INTO website_domains (website_id, domain, domain_type, is_primary, status) VALUES (:website_id, :domain, :domain_type, 0, 'pending')");
+                $insert->execute(['website_id' => $id, 'domain' => $domain, 'domain_type' => $domainType]);
                 $audit = $pdo->prepare("INSERT INTO audit_events (admin_id, event_type, target_type, target_id, details_json) VALUES (:admin_id, 'website.domain.added', 'website', :target_id, :details)");
-                $audit->execute(['admin_id' => (int)$admin['id'], 'target_id' => (string)$id, 'details' => json_encode(['domain' => $domain], JSON_THROW_ON_ERROR)]);
+                $audit->execute(['admin_id' => (int)$admin['id'], 'target_id' => (string)$id, 'details' => json_encode(['domain' => $domain, 'domain_type' => $domainType], JSON_THROW_ON_ERROR)]);
                 $success = 'Domain added. DNS and web-server configuration have not been changed yet.';
             } catch (PDOException $e) {
                 if ((string)$e->getCode() === '23000') {
@@ -78,7 +82,7 @@ renderHeader((string)$website['name'], 'sites');
 <?php if (!$domains): ?><tr><td colspan="4">No domain relation records yet. Run the migration runner first.</td></tr><?php endif; ?>
 </tbody></table></div>
 <div class="section-heading"><div><h3>Add domain or subdomain</h3><p class="muted">The domain must not already belong to another website.</p></div></div>
-<div class="login-card"><form method="post" class="form-stack"><input type="hidden" name="_csrf" value="<?= Security::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="add_domain"><label>Domain name<input name="domain" placeholder="www.example.com" maxlength="253" required pattern="(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*"></label><button class="primary-button" type="submit">Add domain</button></form></div>
+<div class="login-card"><form method="post" class="form-stack"><input type="hidden" name="_csrf" value="<?= Security::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="add_domain"><label>Domain name<input name="domain" placeholder="www.example.com" maxlength="253" required pattern="(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*"></label><label>Domain type<select name="domain_type"><option value="alias">Alias</option><option value="subdomain">Subdomain</option></select></label><button class="primary-button" type="submit">Add domain</button></form></div>
 <div class="section-heading"><div><h3>Databases</h3><p class="muted">Database provisioning and direct phpMyAdmin login will be enabled through the restricted operations service.</p></div></div>
 <?php if ($databases): ?><div class="site-table-wrap"><table class="site-table"><thead><tr><th>Database</th><th>Username</th><th>Status</th><th>Tools</th></tr></thead><tbody><?php foreach ($databases as $db): ?><tr><td><strong><?= Security::escape($db['database_name']) ?></strong></td><td><?= Security::escape($db['database_user']) ?></td><td>Tracked</td><td><span class="muted">phpMyAdmin integration pending</span></td></tr><?php endforeach; ?></tbody></table></div><?php else: ?><div class="empty-state"><div class="empty-icon">▤</div><h3>No databases tracked</h3><p>Database creation will be added after the restricted server operations service is ready.</p></div><?php endif; ?>
 <div class="notice"><strong>Safe development mode</strong><p>This page currently updates panel metadata only. It does not run shell commands, change public DNS, provision system users, or modify Nginx.</p></div>
