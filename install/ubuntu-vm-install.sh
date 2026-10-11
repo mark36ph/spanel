@@ -94,6 +94,7 @@ for php_file in \
     public/site.php \
     public/phpmyadmin-launch.php \
     public/phpmyadmin-logout.php \
+    public/phpmyadmin-auth-check.php \
     public/create-site.php \
     bin/worker.php \
     bin/doctor.php \
@@ -237,6 +238,7 @@ security.limit_extensions = .php
 php_admin_value[session.save_path] = /var/lib/spanel/phpmyadmin-sessions
 php_admin_value[session.gc_maxlifetime] = 1800
 php_admin_value[session.cookie_httponly] = 1
+php_admin_value[session.cookie_path] = /phpmyadmin/
 php_admin_value[session.cookie_samesite] = Strict
 php_admin_value[session.use_strict_mode] = 1
 POOL
@@ -304,6 +306,13 @@ server {
         return 302 /phpmyadmin/;
     }
 
+    location = /phpmyadmin-auth-check.php {
+        internal;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME /opt/spanel/public/phpmyadmin-auth-check.php;
+        fastcgi_pass unix:/run/php/spanel.sock;
+    }
+
     location ~ /\. {
         deny all;
     }
@@ -313,6 +322,8 @@ server {
     }
 
     location ~ ^/phpmyadmin/(.+\.php)$ {
+        auth_request /phpmyadmin-auth-check.php;
+        error_page 401 =302 /login.php;
         root /usr/share;
         try_files \$uri =404;
         include snippets/fastcgi-php.conf;
@@ -326,6 +337,8 @@ server {
     }
 
     location /phpmyadmin/ {
+        auth_request /phpmyadmin-auth-check.php;
+        error_page 401 =302 /login.php;
         root /usr/share;
         index index.php;
         try_files \$uri \$uri/ =404;
