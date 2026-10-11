@@ -29,6 +29,7 @@ $invalid = [
     str_repeat('a', 64) . '.com',
     str_repeat('a', 250) . '.com',
     'example.com:443',
+    'example.com..',
 ];
 foreach ($invalid as $input) {
     if (DomainName::normalize($input) !== null) {
