@@ -84,6 +84,7 @@ if (PHP_OS_FAMILY !== 'Windows' && is_file($configPath)) {
     }
 }
 
+$pdo = null;
 if ($configValid && extension_loaded('pdo_mysql')) {
     try {
         $db = $config['database'];
@@ -95,6 +96,13 @@ if ($configValid && extension_loaded('pdo_mysql')) {
             PDO::ATTR_TIMEOUT => 5,
         ]);
         doctorCheck('Database connection', true, 'connected using local configuration', 'not connected');
+    } catch (Throwable) {
+        doctorCheck('Database connection', false, '', 'Could not connect. Check the local DB settings, service and grants.');
+    }
+}
+
+if ($pdo instanceof PDO) {
+    try {
         $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
         $tableSet = array_fill_keys($tables, true);
         foreach (['admins', 'servers', 'websites', 'website_databases', 'schema_migrations'] as $table) {
@@ -127,7 +135,7 @@ if ($configValid && extension_loaded('pdo_mysql')) {
             doctorCheck('Pending migrations', $pending === 0, 'none', $pending . ' migration(s) pending; review with php bin/migrate.php --status.', true);
         }
     } catch (Throwable) {
-        doctorCheck('Database connection', false, '', 'Could not connect or inspect the schema. Check the local DB settings, service and grants.');
+        doctorCheck('Database schema inspection', false, '', 'Connected, but could not inspect the schema. Check table privileges and migration state.');
     }
 }
 
