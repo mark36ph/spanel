@@ -1,41 +1,44 @@
-# Restricted website provisioner (initial release)
+# Restricted website and database provisioner
 
-This is the root-owned typed helper invoked by the existing PHP worker at `/usr/local/sbin/spanel-ops`. It is separate from the read-only socket service. It is intentionally limited to provisioning a single website without a database.
+This is the root-owned typed helper installed at `/usr/local/sbin/spanel-ops`. The SPanel PHP worker can invoke only this fixed helper through the exact sudoers rule. The helper accepts one bounded JSON request on stdin and no command-line arguments.
 
-## Supported behavior
+## Implemented behavior
 
-- Accepts one JSON object on stdin, capped at 16 KiB; no command-line arguments are accepted.
-- Accepts only the exact `website.provision` request contract used by SPanel; rejects missing/extra fields, duplicate JSON keys, invalid scalar types, trailing JSON values, single-label domains and unsupported PHP versions.
-- Verifies the site-user lookup result is either a confirmed collision or a confirmed missing user; unexpected account lookup failures stop provisioning.
-- Creates the site account with an explicit private primary group and fails closed if its UID cannot be resolved.
-- Derives all usernames, resource names and paths from the positive numeric website ID. The caller cannot supply paths, commands, service names, SQL or resource names.
-- Selects PHP-FPM 8.3 then 8.2 unless a supported version is explicitly requested; verifies the runtime configuration before continuing.
-- Refuses any existing site user, document root, pool configuration or Nginx site/link rather than overwriting it.
-- Creates a dedicated Linux user and document root, stages a fixed PHP-FPM pool and Nginx template, tests both configurations and reloads only the fixed PHP-FPM and Nginx services.
-- Attempts bounded best-effort rollback of only resources created by that invocation on failure. It never recursively deletes directories.
-- Returns the exact successful response expected by the PHP worker. Errors return a non-zero exit code and a generic machine-readable code; diagnostics are not exposed to the panel.
+- Accepts only the exact `website.provision` request contract. It rejects missing/extra fields, duplicate JSON keys, invalid scalar types, trailing JSON values, single-label domains and unsupported PHP versions.
+- Derives all usernames, database identifiers and paths from the numeric website ID. Browser-supplied paths, SQL, commands, service names and resource names are never accepted.
+- Selects PHP-FPM 8.3 then 8.2 unless a supported version is explicitly requested, and validates the chosen FPM configuration.
+- Refuses pre-existing users, site paths, pool files, Nginx files/links and existing database secret files rather than overwriting them.
+- Creates a dedicated non-login Linux account, isolated document root and PHP-FPM pool, plus a fixed-template Nginx site. Configurations are tested before activation/reload.
+- Writes a basic `index.html` landing page so a new site can be tested before uploading real files.
+- Performs a local HTTP health check using the requested domain in the Host header and verifies the response belongs to the newly created landing page.
+- When `create_database: true`, creates a per-site MariaDB database and localhost-only account. Grants are limited to that database and exclude global privileges and `GRANT OPTION`.
+- Generates a strong random database password in the privileged helper and stores it only as AES-256-GCM authenticated ciphertext in `/var/lib/spanel/secrets/website-db-<id>.enc`. The 32-byte key is held in `/etc/spanel/database-secrets.key`; both are root-owned and inaccessible to the panel account. The password is never returned in the helper response or stored in panel metadata/logs.
+- Attempts best-effort rollback of only resources created by the current invocation if a later step fails. It never recursively deletes directories.
+- Returns a strict response that the PHP worker validates before committing website/database metadata.
 
-## Explicit limitations
+## Installation
 
-**Database creation is not enabled.** Requests with `create_database: true` are rejected before any changes. The safe database workflow still needs a credential-generation and one-time display/storage design, strict MariaDB grants, and recovery tests. SSL issuance is also not part of this helper yet. Do not tell users a database or certificate was created by this initial release.
+The first-install script builds the helper from `operations-service/cmd/provisioner`, installs it root-owned, creates the protected secret-store paths/key, validates and installs `install/sudoers/spanel-ops`, and installs/enables the non-root `spanel-worker.timer`. The timer checks the operation queue every 30 seconds; each worker run handles at most one job.
 
-The PHP-FPM and Nginx service reloads and rollback are not yet VM-acceptance-tested. Keep this helper disabled until the complete checklist has passed on a disposable Ubuntu Server 24.04 VM.
+The installer targets a clean, disposable Ubuntu Server 24.04 LTS VM. It has not yet passed VM acceptance testing. GitHub Actions remain manual-only and must not be started automatically during development.
 
-## Build and stage in the VM
+## Important limitations
 
-From the repository root, after installing Go on the disposable VM:
+- Database creation and website setup are implemented in code but **not yet built or VM-tested**. Do not use this on a production host.
+- The encrypted secret store is currently write-only from the SPanel web application boundary. A reviewed, one-time credential broker and phpMyAdmin sign-on integration are still required; no database password is exposed to the panel UI.
+- Direct phpMyAdmin login, SSL issuance, DNS automation, website suspension/removal, backups/restores and safe update/rollback are not enabled end-to-end.
+- The helper's rollback is best-effort, not a transaction across Linux accounts, MariaDB and system daemons. If a job is marked `rollback_required`, inspect the host before any retry.
+
+## Manual helper inspection
+
+On the disposable VM after installation:
 
 ```bash
-go build -trimpath -buildvcs=false -o /tmp/spanel-ops-provisioner ./operations-service/cmd/provisioner
-sudo install -o root -g root -m 0755 /tmp/spanel-ops-provisioner /usr/local/sbin/spanel-ops
-sudo install -d -o root -g root -m 0755 /var/www/spanel/sites
-sudo install -o root -g root -m 0440 install/sudoers/spanel-ops /etc/sudoers.d/spanel-ops
+sudo stat -c '%U:%G:%a %n' /usr/local/sbin/spanel-ops /etc/sudoers.d/spanel-ops
+sudo stat -c '%U:%G:%a %a %n' /etc/spanel/database-secrets.key /var/lib/spanel/secrets
 sudo visudo -cf /etc/sudoers.d/spanel-ops
-sudo stat -c '%U %G %a %n' /usr/local/sbin/spanel-ops /etc/sudoers.d/spanel-ops
+sudo systemctl status spanel-worker.timer
+sudo journalctl -u spanel-worker.service -n 100 --no-pager
 ```
 
-Verify the binary is root-owned and not writable by group/others. Do not enable it on production or migrate real websites before VM acceptance. Do not add any broader sudo rule for the panel account.
-
-## Recovery caveat
-
-Rollback is best-effort, not a transaction across Linux accounts and system daemons. If a failure occurs, inspect the job state and protected system logs before retrying. Never rerun a failed provisioning job blindly. Any leftover resources must be inspected manually and reconciled with the SPanel database before another attempt.
+Never print or share the contents of the encryption key or any encrypted credential file. Do not retry a failed/uncertain job until its system resources and metadata have been reconciled.
