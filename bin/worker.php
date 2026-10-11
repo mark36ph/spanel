@@ -251,6 +251,7 @@ try {
         finishJob($pdo, $jobId, 'succeeded', null, null, [
             'website_id' => $websiteId,
             'domain' => $domain,
+            'php_version' => $actualPhpVersion,
             'database_created' => $response['database_created'],
         ]);
         $pdo->commit();
