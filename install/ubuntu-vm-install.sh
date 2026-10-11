@@ -151,10 +151,11 @@ install -o root -g root -m 0755 /tmp/spanel-ops-provisioner /usr/local/sbin/span
 rm -f /tmp/spanel-ops-provisioner
 install -o root -g root -m 0440 "$APP_DIR/install/sudoers/spanel-ops" /etc/sudoers.d/spanel-ops
 if ! visudo -cf /etc/sudoers.d/spanel-ops; then
-    rm -f /etc/sudoers.d/spanel-ops /usr/local/sbin/spanel-ops
+    rm -f /etc/sudoers.d/spanel-ops /usr/local/sbin/spanel-ops /usr/local/sbin/spanel-pma-credential-broker
     fail "Restricted operations sudoers configuration failed validation."
 fi
 [[ "$(stat -c '%U:%G:%a' /usr/local/sbin/spanel-ops)" == "root:root:755" ]] || fail "Restricted helper ownership or permissions are unexpected."
+[[ "$(stat -c '%U:%G:%a' /usr/local/sbin/spanel-pma-credential-broker)" == "root:root:755" ]] || fail "phpMyAdmin credential broker ownership or permissions are unexpected."
 [[ "$(stat -c '%U:%G:%a' /var/lib/spanel/secrets)" == "root:root:700" ]] || fail "Database secret directory permissions are unexpected."
 install -o root -g root -m 0755 "$APP_DIR/install/helpers/spanel-pma-credential-broker.php" /usr/local/sbin/spanel-pma-credential-broker
 [[ "$(stat -c '%U:%G:%a' /usr/local/sbin/spanel-pma-credential-broker)" == "root:root:755" ]] || fail "phpMyAdmin credential broker ownership or permissions are unexpected."
@@ -188,7 +189,66 @@ fi
 systemctl enable --now "php${PHP_VERSION}-fpm"
 systemctl reload "php${PHP_VERSION}-fpm"
 
-info "Configuring Nginx to serve only SPanel's public directory"
+info "Configuring isolated phpMyAdmin PHP-FPM pool and signon configuration"
+cat > "$PHP_PMA_FPM_POOL" <<POOL
+[spanel-pma]
+user = spanel-pma
+group = spanel-pma
+listen = /run/php/spanel-pma.sock
+listen.owner = www-data
+listen.group = www-data
+listen.mode = 0660
+pm = ondemand
+pm.max_children = 5
+pm.process_idle_timeout = 10s
+pm.max_requests = 300
+clear_env = yes
+security.limit_extensions = .php
+php_admin_value[session.save_path] = /var/lib/spanel/phpmyadmin-sessions
+php_admin_value[session.gc_maxlifetime] = 1800
+php_admin_value[session.cookie_httponly] = 1
+php_admin_value[session.cookie_samesite] = Strict
+php_admin_value[session.use_strict_mode] = 1
+POOL
+chown root:root "$PHP_PMA_FPM_POOL"
+chmod 0644 "$PHP_PMA_FPM_POOL"
+
+[[ -f /etc/phpmyadmin/config.inc.php ]] || fail "phpMyAdmin configuration file is missing."
+grep -Fq '/etc/phpmyadmin/conf.d' /etc/phpmyadmin/config.inc.php || fail "The installed phpMyAdmin configuration does not load /etc/phpmyadmin/conf.d; refusing to continue with an unconfigured login."
+install -d -o root -g root -m 0755 /etc/phpmyadmin/conf.d
+cat > /etc/phpmyadmin/conf.d/99-spanel.php <<'PMA_CONFIG'
+<?php
+declare(strict_types=1);
+$spanelLocalConfig = require '/opt/spanel/config/config.local.php';
+$spanelBaseUrl = rtrim((string)($spanelLocalConfig['app']['base_url'] ?? ''), '/');
+$spanelSecureCookie = str_starts_with($spanelBaseUrl, 'https://');
+$cfg['AllowArbitraryServer'] = false;
+$cfg['Servers'][1]['auth_type'] = 'signon';
+$cfg['Servers'][1]['host'] = 'localhost';
+$cfg['Servers'][1]['port'] = '3306';
+$cfg['Servers'][1]['AllowNoPassword'] = false;
+$cfg['Servers'][1]['SignonSession'] = 'spanel_pma_signon';
+$cfg['Servers'][1]['SignonCookieParams'] = [
+    'lifetime' => 60,
+    'path' => '/phpmyadmin/',
+    'secure' => $spanelSecureCookie,
+    'httponly' => true,
+    'samesite' => 'Strict',
+];
+$cfg['Servers'][1]['SignonURL'] = $spanelBaseUrl . '/login.php';
+$cfg['Servers'][1]['LogoutURL'] = $spanelBaseUrl . '/phpmyadmin-logout.php';
+$cfg['Servers'][1]['hide_connection_errors'] = true;
+PMA_CONFIG
+chown root:root /etc/phpmyadmin/conf.d/99-spanel.php
+chmod 0644 /etc/phpmyadmin/conf.d/99-spanel.php
+
+if ! "/usr/sbin/php-fpm${PHP_VERSION}" -t; then
+    rm -f "$PHP_FPM_POOL" "$PHP_PMA_FPM_POOL"
+    fail "PHP-FPM configuration validation failed; the new SPanel/phpMyAdmin pools were removed."
+fi
+systemctl reload "php${PHP_VERSION}-fpm"
+
+info "Configuring Nginx to serve SPanel and phpMyAdmin"
 cat > "$NGINX_SITE" <<NGINX
 server {
     listen 80;
@@ -206,14 +266,35 @@ server {
         try_files \$uri \$uri/ /index.php?\$query_string;
     }
 
+    location = /phpmyadmin {
+        return 302 /phpmyadmin/;
+    }
+
+    location ~ /\. {
+        deny all;
+    }
+
+    location ~ ^/phpmyadmin/(setup|libraries|templates|vendor|sql|doc|examples)/ {
+        deny all;
+    }
+
+    location ~ ^/phpmyadmin/(.+\.php)$ {
+        root /usr/share;
+        try_files $uri =404;
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/spanel-pma.sock;
+    }
+
     location ~ \.php$ {
         try_files \$uri =404;
         include snippets/fastcgi-php.conf;
         fastcgi_pass unix:/run/php/spanel.sock;
     }
 
-    location ~ /\. {
-        deny all;
+    location /phpmyadmin/ {
+        root /usr/share;
+        index index.php;
+        try_files \$uri \$uri/ =404;
     }
 }
 NGINX
