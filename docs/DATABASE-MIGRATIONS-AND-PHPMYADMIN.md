@@ -4,7 +4,7 @@
 
 Evolve the initial SPanel schema safely without losing existing data. All schema changes must be versioned, repeatable, auditable and tested before any production VPS migration.
 
-This document is an implementation plan, not a claim that the migration runner or migrations already exist.
+This document describes the implemented CLI migration runner and current migrations, plus the remaining verification and feature work. The runner and migrations have not yet been tested against a real MariaDB instance in the Ubuntu VM.
 
 ## Migration file layout
 
@@ -32,7 +32,7 @@ Create a CLI-only entry point such as `bin/migrate.php`.
 2. Load the database connection from the restricted local configuration.
 3. Acquire a database/advisory lock so two migration processes cannot run at once.
 4. Verify the migrations directory and filenames; sort migrations deterministically.
-5. Create `schema_migrations` if needed.
+5. Create `schema_migrations` if needed. (Implemented in `bin/migrate.php`.)
 6. For each migration, compare the file checksum with the recorded checksum. Stop immediately if an already-applied migration has changed.
 7. Check prerequisites and whether the target change is already present, as appropriate for the migration's designed recovery strategy.
 8. Apply one migration at a time, recording it only after successful completion and verification.
