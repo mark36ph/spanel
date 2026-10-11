@@ -19,7 +19,7 @@ The first-install bootstrap targets **Ubuntu Server 24.04 LTS**. From the reposi
 sudo bash install/ubuntu-vm-install.sh
 ```
 
-It installs Nginx, PHP-FPM and MariaDB, creates a private panel DB credential, applies the schema/migrations, registers the local VM and prompts you to create the first administrator. It refuses to overwrite an existing `/opt/spanel` install or an existing SPanel Nginx site. Review the script before running it; it changes the VM and installs system packages.
+It runs as root only for operating-system setup, package installation, database/service configuration and file ownership. It then creates a dedicated `spanel` system account with a non-login shell. Panel maintenance commands run as `spanel`; application code and configuration remain root-owned and are not writable by that account. The installer verifies this privilege separation before finishing. It creates a private panel DB credential, applies schema/migrations, registers the local VM and prompts you to create the first administrator. It refuses to adopt an existing `spanel` account or overwrite an existing `/opt/spanel` install or SPanel Nginx site. Review the script before running it; it changes the VM and installs system packages.
 
 For VirtualBox NAT, forward **host TCP 8081 to guest TCP 80**, then open `http://127.0.0.1:8081` on Windows. Keep the VM private; do not expose the panel publicly.
 
@@ -37,4 +37,4 @@ After installation, `php bin/doctor.php` is a read-only preflight for PHP/extens
 - [Ubuntu VM acceptance checklist](docs/VM-TEST-CHECKLIST.md)
 - [Installer and updates design](docs/INSTALLER-AND-UPDATES.md)
 
-The repository includes an initial Ubuntu VM installer draft, metadata-only server registration, website registration/domain management, a provisioning job queue and an operations status page. The installer itself has not yet been run on a VM. Website creation still does not configure isolated Linux users, per-site PHP-FPM pools, hosted-site databases or website Nginx configs; secure phpMyAdmin sign-on and the safe privileged operations helper remain outstanding. Keep the panel private and do not migrate production sites until VM installation, update, rollback and restore tests pass.
+The repository includes an Ubuntu VM installer, metadata-only server registration, website registration/domain management, a provisioning job queue and an operations status page. The installer and privileged helper have not yet passed VM acceptance testing. A restricted root-owned helper exists for isolated Linux users, per-site PHP-FPM pools and website Nginx configs, but must be manually installed and tested; hosted-site database provisioning, SSL and secure phpMyAdmin sign-on remain disabled. Keep the panel private and do not migrate production sites until VM installation, isolation, update, rollback and restore tests pass.
