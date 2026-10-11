@@ -1,8 +1,8 @@
 name: PHP checks
 
+# Checks are paused during rapid development. Run manually from Actions
+# when we're ready to resume validation.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
