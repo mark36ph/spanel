@@ -25,15 +25,15 @@ $success = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Csrf::verify($_POST['_csrf'] ?? null);
     $action = (string)($_POST['action'] ?? '');
+
     if ($action === 'add_domain') {
         $raw = trim((string)($_POST['domain'] ?? ''));
         $domain = DomainName::normalize($raw);
         $domainType = (string)($_POST['domain_type'] ?? 'alias');
         $validType = in_array($domainType, ['alias', 'subdomain'], true);
-        $valid = $domain !== null && preg_match('/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))*$/D', $domain) === 1;
         if (!$validType) {
             $error = 'Select whether this domain is an alias or subdomain.';
-        } elseif (!$valid) {
+        } elseif ($domain === null) {
             $error = 'Enter a valid domain name using letters, numbers, dots and hyphens.';
         } elseif ($domain === strtolower((string)$website['domain'])) {
             $error = 'This is already the website primary domain.';
@@ -43,7 +43,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $insert = $pdo->prepare("INSERT INTO website_domains (website_id, domain, domain_type, is_primary, status) VALUES (:website_id, :domain, :domain_type, 0, 'pending')");
                 $insert->execute(['website_id' => $id, 'domain' => $domain, 'domain_type' => $domainType]);
                 $audit = $pdo->prepare("INSERT INTO audit_events (admin_id, event_type, target_type, target_id, details_json) VALUES (:admin_id, 'website.domain.added', 'website', :target_id, :details)");
-                $audit->execute(['admin_id' => (int)$admin['id'], 'target_id' => (string)$id, 'details' => json_encode(['domain' => $domain, 'domain_type' => $domainType], JSON_THROW_ON_ERROR)]);
+                $audit->execute([
+                    'admin_id' => (int)$admin['id'],
+                    'target_id' => (string)$id,
+                    'details' => json_encode(['domain' => $domain, 'domain_type' => $domainType], JSON_THROW_ON_ERROR),
+                ]);
                 $pdo->commit();
                 $success = 'Domain added. DNS and web-server configuration have not been changed yet.';
             } catch (Throwable $e) {
@@ -57,13 +61,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = 'The domain could not be saved. Check the panel logs.';
                 }
             }
+        }
+    } elseif ($action === 'remove_domain') {
+        $domain = DomainName::normalize((string)($_POST['domain'] ?? ''));
+        if ($domain === null) {
+            $error = 'Select a valid domain to remove.';
+        } else {
+            try {
+                $pdo->beginTransaction();
+                $remove = $pdo->prepare("DELETE FROM website_domains WHERE website_id = :website_id AND domain = :domain AND is_primary = 0 AND status = 'pending'");
+                $remove->execute(['website_id' => $id, 'domain' => $domain]);
+                if ($remove->rowCount() !== 1) {
+                    $pdo->rollBack();
+                    $error = 'Only pending, non-primary domain records can be removed.';
+                } else {
+                    $audit = $pdo->prepare("INSERT INTO audit_events (admin_id, event_type, target_type, target_id, details_json) VALUES (:admin_id, 'website.domain.removed', 'website', :target_id, :details)");
+                    $audit->execute([
+                        'admin_id' => (int)$admin['id'],
+                        'target_id' => (string)$id,
+                        'details' => json_encode(['domain' => $domain], JSON_THROW_ON_ERROR),
+                    ]);
+                    $pdo->commit();
+                    $success = 'Pending domain record removed. No DNS or web-server configuration was changed.';
+                }
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                error_log('SPanel domain removal failed: ' . $e->getMessage());
+                $error = 'The domain could not be removed. Check the panel logs.';
             }
         }
     } else {
         $error = 'Unknown action.';
     }
 }
-
 $domains = $pdo->prepare('SELECT domain, domain_type, is_primary, status, created_at FROM website_domains WHERE website_id = :id ORDER BY is_primary DESC, domain ASC');
 $domains->execute(['id' => $id]);
 $domains = $domains->fetchAll();
@@ -83,9 +115,9 @@ renderHeader((string)$website['name'], 'sites');
 <article class="stat-card"><div class="stat-top"><span>Databases</span><span class="stat-icon amber">▤</span></div><strong><?= count($databases) ?></strong><small>Metadata records</small></article>
 </div>
 <div class="section-heading"><div><h3>Domains</h3><p class="muted">Domain records are stored here; DNS and Nginx are not changed by this form.</p></div></div>
-<div class="site-table-wrap"><table class="site-table"><thead><tr><th>Domain</th><th>Type</th><th>Primary</th><th>Status</th></tr></thead><tbody>
-<?php foreach ($domains as $domain): ?><tr><td><strong><?= Security::escape($domain['domain']) ?></strong></td><td><?= Security::escape($domain['domain_type']) ?></td><td><?= (int)$domain['is_primary'] === 1 ? 'Yes' : 'No' ?></td><td><span class="status-badge"><?= Security::escape($domain['status']) ?></span></td></tr><?php endforeach; ?>
-<?php if (!$domains): ?><tr><td colspan="4">No domain relation records yet. Run the migration runner first.</td></tr><?php endif; ?>
+<div class="site-table-wrap"><table class="site-table"><thead><tr><th>Domain</th><th>Type</th><th>Primary</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+<?php foreach ($domains as $domain): ?><tr><td><strong><?= Security::escape($domain['domain']) ?></strong></td><td><?= Security::escape($domain['domain_type']) ?></td><td><?= (int)$domain['is_primary'] === 1 ? 'Yes' : 'No' ?></td><td><span class="status-badge"><?= Security::escape($domain['status']) ?></span></td><td><?php if ((int)$domain['is_primary'] !== 1 && $domain['status'] === 'pending'): ?><form method="post"><input type="hidden" name="_csrf" value="<?= Security::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="remove_domain"><input type="hidden" name="domain" value="<?= Security::escape($domain['domain']) ?>"><button class="secondary-button" type="submit">Remove pending</button></form><?php else: ?><span class="muted">Protected</span><?php endif; ?></td></tr><?php endforeach; ?>
+<?php if (!$domains): ?><tr><td colspan="5">No domain relation records yet. Run the migration runner first.</td></tr><?php endif; ?>
 </tbody></table></div>
 <div class="section-heading"><div><h3>Add domain or subdomain</h3><p class="muted">The domain must not already belong to another website.</p></div></div>
 <div class="login-card"><form method="post" class="form-stack"><input type="hidden" name="_csrf" value="<?= Security::escape(Csrf::token()) ?>"><input type="hidden" name="action" value="add_domain"><label>Domain name<input name="domain" placeholder="www.example.com" maxlength="253" required pattern="(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*"></label><label>Domain type<select name="domain_type"><option value="alias">Alias</option><option value="subdomain">Subdomain</option></select></label><button class="primary-button" type="submit">Add domain</button></form></div>
