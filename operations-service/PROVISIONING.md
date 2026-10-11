@@ -5,7 +5,9 @@ This is the root-owned typed helper invoked by the existing PHP worker at `/usr/
 ## Supported behavior
 
 - Accepts one JSON object on stdin, capped at 16 KiB; no command-line arguments are accepted.
-- Accepts only the exact `website.provision` request contract used by SPanel.
+- Accepts only the exact `website.provision` request contract used by SPanel; rejects missing/extra fields, duplicate JSON keys, invalid scalar types, trailing JSON values, single-label domains and unsupported PHP versions.
+- Verifies the site-user lookup result is either a confirmed collision or a confirmed missing user; unexpected account lookup failures stop provisioning.
+- Creates the site account with an explicit private primary group and fails closed if its UID cannot be resolved.
 - Derives all usernames, resource names and paths from the positive numeric website ID. The caller cannot supply paths, commands, service names, SQL or resource names.
 - Selects PHP-FPM 8.3 then 8.2 unless a supported version is explicitly requested; verifies the runtime configuration before continuing.
 - Refuses any existing site user, document root, pool configuration or Nginx site/link rather than overwriting it.
