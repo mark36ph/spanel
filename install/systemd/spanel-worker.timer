@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the SPanel provisioning queue periodically
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=30s
+AccuracySec=5s
+Persistent=true
+Unit=spanel-worker.service
+
+[Install]
+WantedBy=timers.target
