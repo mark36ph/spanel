@@ -46,6 +46,18 @@ final class Security
             $_SESSION['_last_regenerated'] = $now;
         }
         $_SESSION['_last_activity'] = $now;
+
+        // Do not retain stale one-time database handoff tokens in a session
+        // after their matching database record has expired.
+        if (array_key_exists('pma_pending_handoff', $_SESSION)) {
+            $pendingHandoff = $_SESSION['pma_pending_handoff'];
+            $issuedAt = is_array($pendingHandoff) && is_int($pendingHandoff['issued_at'] ?? null)
+                ? $pendingHandoff['issued_at']
+                : 0;
+            if ($issuedAt < 1 || $now < $issuedAt || ($now - $issuedAt) > 60) {
+                unset($_SESSION['pma_pending_handoff']);
+            }
+        }
     }
 
     public static function escape(?string $value): string
