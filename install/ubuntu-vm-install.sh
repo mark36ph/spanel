@@ -201,7 +201,7 @@ user = spanel
 group = www-data
 listen = /run/php/spanel.sock
 listen.owner = www-data
-listen.group = www-data
+listen.group = spanel-pma
 listen.mode = 0660
 pm = ondemand
 pm.max_children = 5
@@ -386,6 +386,9 @@ if sudo -u "$APP_USER" test -r /var/lib/spanel/phpmyadmin-sessions; then
 fi
 sudo -u spanel-pma test -r /etc/phpmyadmin/conf.d/99-spanel.php || fail "The isolated phpMyAdmin account cannot read its configuration."
 sudo -u spanel-pma test -r /var/lib/spanel/phpmyadmin-sessions || fail "The isolated phpMyAdmin account cannot access its session store."
+if sudo -u "$APP_USER" test -w /run/php/spanel-pma.sock; then
+    fail "The SPanel account must not be able to connect directly to the phpMyAdmin PHP-FPM pool."
+fi
 printf 'SPanel runs under non-root account %s (UID %s); application code remains root-owned.\n' "$APP_USER" "$(id -u "$APP_USER")"
 
 info "Running the read-only preflight"
