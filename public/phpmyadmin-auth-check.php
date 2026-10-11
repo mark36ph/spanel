@@ -12,7 +12,19 @@ $cookieId = $_COOKIE[$sessionName] ?? null;
 
 // Do not create new PHP sessions for anonymous Nginx auth subrequests.
 if (!is_string($cookieId) || strlen($cookieId) < 16 || strlen($cookieId) > 256
-    || preg_match('/^[A-Za-z0-9,-]+$/D', $cookieId) !== 1) {
+    || preg_match('/^[A-Za-z0-9,-]+$/D', $cookieId) !== 1
+    || !function_exists('posix_geteuid')) {
+    http_response_code(401);
+    exit;
+}
+
+$sessionFile = '/var/lib/spanel/panel-sessions/sess_' . $cookieId;
+clearstatcache(true, $sessionFile);
+$sessionStat = @lstat($sessionFile);
+if (!is_array($sessionStat)
+    || ($sessionStat['mode'] & 0170000) !== 0100000
+    || (int)$sessionStat['uid'] !== posix_geteuid()
+    || (($sessionStat['mode'] & 0077) !== 0)) {
     http_response_code(401);
     exit;
 }
