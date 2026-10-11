@@ -53,7 +53,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Give each website its own overview and contextual sidebar.
 - [ ] Manage primary domains, aliases and subdomains.
 - [ ] Create/manage website databases and least-privilege database users during and after website creation.
-- [ ] Install one phpMyAdmin instance per hosting server and add secure SPanel access to the selected website database; test cross-website isolation.
+- [ ] Install one phpMyAdmin instance per hosting server and add a per-database **Open phpMyAdmin** link that logs in as the correct website database user and selects that database using a short-lived, single-use secure handoff; test cross-website isolation.
 - [ ] Add cron jobs with validation and audit logs.
 - [ ] Add file manager with strict path containment and permission checks.
 - [ ] Add logs, disk usage and resource summaries.
