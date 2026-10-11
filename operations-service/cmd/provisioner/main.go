@@ -306,20 +306,24 @@ func (p *provisioner) run(r request) error {
 }
 
 func (p *provisioner) rollback() {
-	if p.secretStored && p.secretPath != "" { _ = os.Remove(p.secretPath) }
+	if p.secretStored && p.secretPath != "" {
+		_ = os.Remove(p.secretPath)
+	}
 	if p.createdDatabaseUser && p.databaseUser != "" {
-		_ = runWithInput(10*time.Second, "/usr/bin/mariadb", "DROP USER IF EXISTS '"+p.databaseUser+"'@'localhost';
-", "--batch", "--skip-column-names")
+		_ = runWithInput(10*time.Second, "/usr/bin/mariadb", "DROP USER IF EXISTS '"+p.databaseUser+"'@'localhost';\n", "--batch", "--skip-column-names")
 	}
 	if p.createdDatabase && p.databaseName != "" {
-		_ = runWithInput(10*time.Second, "/usr/bin/mariadb", "DROP DATABASE IF EXISTS "+p.databaseName+";
-", "--batch", "--skip-column-names")
+		_ = runWithInput(10*time.Second, "/usr/bin/mariadb", "DROP DATABASE IF EXISTS "+p.databaseName+";\n", "--batch", "--skip-column-names")
 	}
 	if p.nginxLinkCreated {
 		_ = os.Remove(p.nginxLink)
 	}
-	if p.nginxInstalled { _ = os.Remove(p.nginxPath) }
-	if p.poolInstalled { _ = os.Remove(p.poolPath) }
+	if p.nginxInstalled {
+		_ = os.Remove(p.nginxPath)
+	}
+	if p.poolInstalled {
+		_ = os.Remove(p.poolPath)
+	}
 	if p.nginxInstalled || p.nginxReloaded {
 		if _, err := run(15*time.Second, "/usr/sbin/nginx", "-t"); err == nil {
 			_ = runCommand(15*time.Second, "/bin/systemctl", "reload", "nginx")
@@ -328,11 +332,16 @@ func (p *provisioner) rollback() {
 	if p.poolInstalled || p.poolReloaded {
 		_ = runCommand(15*time.Second, "/bin/systemctl", "reload", "php"+p.phpVersion+"-fpm")
 	}
-	if p.createdPublic { _ = os.Remove(p.publicPath) }
-	if p.createdUser { _ = runCommand(10*time.Second, "/usr/sbin/userdel", p.username) }
-	if p.createdRoot { _ = os.Remove(p.rootPath) }
+	if p.createdPublic {
+		_ = os.Remove(p.publicPath)
+	}
+	if p.createdUser {
+		_ = runCommand(10*time.Second, "/usr/sbin/userdel", p.username)
+	}
+	if p.createdRoot {
+		_ = os.Remove(p.rootPath)
+	}
 }
-
 
 func databaseIdentifiers(websiteID int64) (string, string, string, error) {
 	if websiteID < 1 { return "", "", "", errors.New("invalid website ID") }
