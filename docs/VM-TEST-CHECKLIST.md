@@ -92,7 +92,9 @@ On the Windows host, open `http://127.0.0.1:8081`.
 - [ ] Confirm the broker response contains only `ok`, the random signon session ID and the non-secret database name; it must not contain a username/password pair or encrypted-secret contents.
 - [ ] Confirm the signon session file is root-owned, group `spanel-pma`, mode `0660`, and unreadable by `spanel`. Confirm the browser cookie is HttpOnly, SameSite=Strict, scoped to `/phpmyadmin/`, and expires after 60 seconds.
 - [ ] Confirm a consumed, expired, replayed or wrong-admin handoff fails closed. Confirm disabled admins, inactive websites/databases, remote servers and mismatched secret references are rejected.
-- [ ] Confirm phpMyAdmin logout clears the short-lived signon cookie and direct phpMyAdmin access without a valid signon session redirects to the SPanel login.
+- [ ] Confirm phpMyAdmin logout and SPanel logout clear both the signon and internal phpMyAdmin cookies.
+- [ ] Confirm every phpMyAdmin request runs the internal SPanel auth check: logout, idle session expiry or admin deactivation must block the next phpMyAdmin request and redirect to SPanel sign-in.
+- [ ] Confirm direct phpMyAdmin access without a valid SPanel session redirects to SPanel login.
 - [ ] Confirm Website A's signon cannot access Website B's database and neither account has global grants or `GRANT OPTION`.
 - [ ] On the local HTTP-only VM, record that Secure cookies are disabled only for this private test. Do not expose it publicly; production signon requires HTTPS.
 
