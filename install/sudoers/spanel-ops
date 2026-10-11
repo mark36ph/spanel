@@ -1,3 +1,3 @@
 # SPanel may invoke only the fixed, root-owned typed website helper.
 # The helper itself rejects all command-line arguments and has a strict operation allowlist.
-spanel ALL=(root) NOPASSWD: /usr/local/sbin/spanel-ops
+spanel ALL=(root) NOPASSWD: /usr/local/sbin/spanel-ops ""
