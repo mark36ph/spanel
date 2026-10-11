@@ -20,6 +20,7 @@ Use this checklist only on a **disposable private Ubuntu Server 24.04 LTS VM**, 
 - [ ] Confirm `/etc/phpmyadmin/conf.d/99-spanel.php` is readable by `spanel-pma` but not by `spanel`; the phpMyAdmin service account must not be able to read `/opt/spanel/config/config.local.php`.
 - [ ] Confirm `/etc/spanel/database-secrets.key` is `root:root` mode `0600`, and `/var/lib/spanel/secrets` is `root:root` mode `0700`.
 - [ ] Confirm `spanel-worker.timer` is enabled and active; its oneshot worker runs as non-root `spanel`.
+- [ ] Confirm `spanel-health-check.timer` is enabled and active and its oneshot service runs as non-root `spanel`.
 - [ ] Confirm the installer finishes its HTTP smoke test and read-only doctor check without errors.
 - [ ] Confirm the installer rejects an unreplaced `CHANGE_ME` DB password or incorrect generated base URL.
 - [ ] Confirm `/config/config.local.php`, `/config/config.example.php`, `/database/schema.sql` and `/bin/doctor.php` do not return HTTP `200`.
@@ -35,7 +36,7 @@ PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
 sudo systemctl --no-pager --full status nginx "php${PHP_VERSION}-fpm" mariadb
 sudo -u spanel php /opt/spanel/bin/doctor.php
 sudo -u spanel php /opt/spanel/bin/migrate.php --status
-sudo systemctl --no-pager --full status spanel-worker.timer
+sudo systemctl --no-pager --full status spanel-worker.timer spanel-health-check.timer
 sudo stat -c '%U:%G:%a %n' /usr/local/sbin/spanel-ops /etc/sudoers.d/spanel-ops /etc/spanel/database-secrets.key /var/lib/spanel/secrets
 curl -sS -o /dev/null -w 'Login HTTP status: %{http_code}\n' http://127.0.0.1/login.php
 curl -sS -o /dev/null -w 'phpMyAdmin unauthenticated status: %{http_code}\n' http://127.0.0.1/phpmyadmin/
@@ -67,6 +68,10 @@ On the Windows host, open `http://127.0.0.1:8081`.
 - [ ] Search servers by name/hostname and filter by status/environment.
 - [ ] Open Audit log, filter by event type and target type, and verify pagination and HTML escaping.
 - [ ] Confirm the dashboard shows server count, queued jobs, recovery-required jobs and recent jobs.
+- [ ] Open **Server health** and confirm the latest Nginx, MariaDB, PHP-FPM, worker timer and disk-space checks appear.
+- [ ] Run `sudo -u spanel php /opt/spanel/bin/health-check.php`; confirm it updates the health page and logs statuses without changing server configuration.
+- [ ] Stop one disposable service, run the health check and confirm the page shows a critical status; restart it and confirm the next scheduled check recovers.
+- [ ] Confirm results older than 10 minutes display as stale/unknown rather than healthy.
 - [ ] Open a website and confirm its recent operation history matches the Operations page.
 - [ ] Confirm none of these screens implies that a queued job has changed the server.
 
@@ -131,3 +136,13 @@ sudo journalctl -u spanel-worker.timer -n 100 --no-pager
 ## Not yet acceptance-tested
 
 The installer now prepares the restricted website/database helper, root-only encrypted credential store, automatic queue timer, phpMyAdmin package/configuration, isolated phpMyAdmin PHP-FPM pool and root-owned signon broker. These changes are implemented in code but not built or acceptance-tested in the Ubuntu VM yet. SSL, DNS automation, backups/restores and safe panel updates/rollback remain incomplete. Keep SPanel private and do not migrate Projectabe or FactBurstQuiz until installation, signon replay/expiry, cross-site isolation, failure recovery and restore tests pass.
+
+## 7. Recovery and destructive-action safeguards
+
+- [ ] Read [backup, restore and recovery preparation](BACKUP-RESTORE-AND-RECOVERY.md) before changing or removing VM resources.
+- [ ] Take a named VirtualBox snapshot before installer, migration or provisioning failure tests.
+- [ ] Create a private metadata/config/secrets/site-files backup using the documented manual starting point; verify command exit codes, ownership and file permissions.
+- [ ] Confirm backups are outside all web roots and are not copied unencrypted to a shared/cloud location.
+- [ ] On a disposable snapshot/clone, rehearse restoring metadata, the matching encryption key and encrypted secret files as a consistent set; do not restore phpMyAdmin or SPanel session files.
+- [ ] Confirm SPanel offers no website/database delete action yet. Until the restricted removal workflow and rollback tests exist, do not manually delete generated users, files, Nginx/PHP-FPM configuration or databases.
+- [ ] Confirm stale jobs are read-only by default and `rollback_required` jobs are never automatically retried or destructively cleaned up.
