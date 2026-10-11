@@ -315,8 +315,11 @@ func (p *provisioner) run(r request) error {
 	if err := runCommand(15*time.Second, "/bin/systemctl", "reload", "nginx"); err != nil { return err }
 	p.nginxReloaded = true
 	body, err := run(10*time.Second, "/usr/bin/curl", "--fail", "--silent", "--show-error", "--max-time", "5", "--header", "Host: "+r.Domain, "http://127.0.0.1/")
-	if err != nil || !bytes.Contains(body, []byte("SPanel site ready")) || !bytes.Contains(body, []byte(r.Domain)) {
-		return errors.New("local website health check did not match the expected site")
+	if err != nil {
+		return fmt.Errorf("local website health check command failed: %w", err)
+	}
+	if !bytes.Contains(body, []byte("SPanel site ready")) || !bytes.Contains(body, []byte(r.Domain)) {
+		return errors.New("local website health check response did not contain the expected site marker and domain")
 	}
 	if r.CreateDatabase { if err := p.createWebsiteDatabase(); err != nil { return err } }
 	return nil
@@ -473,7 +476,7 @@ func runWithInput(timeout time.Duration, name, input string, args ...string) err
 	cmd.Stderr = &limitedWriter{w: &stderr, limit: 8192}
 	err := cmd.Run()
 	if ctx.Err() != nil { return ctx.Err() }
-	if err != nil { return fmt.Errorf("fixed command failed: %s", name) }
+	if err != nil { return commandFailure(name, stderr.String()) }
 	return nil
 }
 
@@ -517,8 +520,24 @@ func run(timeout time.Duration, name string, args ...string) ([]byte,error) {
 	cmd.Stderr=&limitedWriter{w:&stderr,limit:8192}
 	err:=cmd.Run()
 	if ctx.Err()!=nil{return nil,ctx.Err()}
-	if err!=nil{return nil,fmt.Errorf("fixed command failed: %s",name)}
+	if err!=nil{return nil,commandFailure(name,stderr.String())}
 	return stdout.Bytes(),nil
+}
+func commandFailure(name, stderr string) error {
+	message := "fixed command failed: " + filepath.Base(name)
+	// MariaDB commands can contain generated credentials in SQL. Never include
+	// their stderr in diagnostics; other fixed system commands may safely expose
+	// a short, bounded error to the root-only journal.
+	if filepath.Base(name) != "mariadb" {
+		detail := strings.TrimSpace(stderr)
+		if len(detail) > 1000 {
+			detail = detail[:1000]
+		}
+		if detail != "" {
+			message += ": " + detail
+		}
+	}
+	return errors.New(message)
 }
 type limitedWriter struct{w io.Writer;limit int}
 func (l *limitedWriter) Write(p []byte) (int, error) {
