@@ -315,7 +315,7 @@ func (p *provisioner) run(r request) error {
 	if err != nil || !bytes.Contains(body, []byte("SPanel site ready")) || !bytes.Contains(body, []byte(r.Domain)) {
 		return errors.New("local website health check did not match the expected site")
 	}
-	if r.CreateDatabase { if err := p.createWebsiteDatabase(r.WebsiteID); err != nil { return err } }
+	if r.CreateDatabase { if err := p.createWebsiteDatabase(); err != nil { return err } }
 	return nil
 }
 
@@ -424,7 +424,7 @@ func openSecret(key, encoded []byte) (string, error) {
 	return string(plaintext), nil
 }
 
-func (p *provisioner) createWebsiteDatabase(websiteID int64) error {
+func (p *provisioner) createWebsiteDatabase() error {
 	keyText, err := os.ReadFile(databaseSecretKeyPath)
 	if err != nil { return err }
 	key, err := hex.DecodeString(strings.TrimSpace(string(keyText)))
@@ -441,7 +441,7 @@ func (p *provisioner) createWebsiteDatabase(websiteID int64) error {
 		"CREATE USER '"+p.databaseUser+"'@'localhost' IDENTIFIED BY '"+password+"';\n",
 		"--batch", "--skip-column-names"); err != nil { return err }
 	p.createdDatabaseUser = true
-	grantSQL := "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON "+p.databaseName+".* TO '"+p.databaseUser+"'@'localhost';\n"
+	grantSQL := "GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, INDEX, REFERENCES, CREATE TEMPORARY TABLES, LOCK TABLES, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, EXECUTE, EVENT, TRIGGER ON "+p.databaseName+".* TO '"+p.databaseUser+"'@'localhost';\n"
 	if err := runWithInput(20*time.Second, "/usr/bin/mariadb", grantSQL, "--batch", "--skip-column-names"); err != nil { return err }
 
 	encrypted, err := sealSecret(key, password)
