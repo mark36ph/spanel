@@ -29,11 +29,12 @@ try {
         fwrite(STDERR, "Read-only facts did not match isolated fixture.\n"); exit(1);
     }
     $evaluation = ProvisioningPreflight::evaluate($facts, null, false);
-    if (!$evaluation['ready'] || $evaluation['selected_php_version'] !== '8.3') {
-        fwrite(STDERR, "Expected PHP 8.3 selection with unknown checks as warnings.\n"); exit(1);
+    if ($evaluation['ready'] || $evaluation['selected_php_version'] !== '8.3') {
+        fwrite(STDERR, "Expected PHP 8.3 selection while an existing site user blocks readiness.\n"); exit(1);
     }
     factsMustFail(static fn() => ReadOnlyServerFacts::collect(['website_id'=>0,'domain'=>'example.com','required_disk_bytes'=>1], null, $root), 'invalid website ID');
     factsMustFail(static fn() => ReadOnlyServerFacts::collect(['website_id'=>7,'domain'=>'example.com','required_disk_bytes'=>0], null, $root), 'invalid disk requirement');
+    factsMustFail(static fn() => ReadOnlyServerFacts::collect(['website_id'=>7,'domain'=>'EXAMPLE.COM','required_disk_bytes'=>1], null, $root), 'non-normalized domain');
 } finally {
     $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
     foreach ($it as $item) { $item->isDir() && !$item->isLink() ? rmdir($item->getPathname()) : unlink($item->getPathname()); }

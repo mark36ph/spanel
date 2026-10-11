@@ -66,6 +66,10 @@ Use VirtualBox NAT port forwarding from host port 8080 to guest port 8080, then 
 The current build contains authentication, dashboard and an inventory UI. It does not yet create operating-system users, Nginx sites, databases for hosted sites, mailboxes, SSL certificates or cron jobs. Those operations require a dedicated, narrowly scoped privileged service, strict input validation, audit events and rollback.
 
 
+## Read-only website preflight
+
+After installation, run `sudo -u spanel php /opt/spanel/bin/preflight-website.php WEBSITE_ID` to inspect locally available PHP/PHP-FPM versions, disk space and resource-name conflicts for a registered website. Add `--php=8.3`, `--database`, or `--disk-bytes=1000000000` to set a runtime, request a database availability check, or adjust the disk estimate. This command never changes the server or executes system commands. Nginx configuration validity and DNS-to-server matching are reported as unknown until a separately reviewed probe exists.
+
 ## Recovering interrupted operations
 
 The worker deliberately does not retry an operation after it may have changed server resources. First run the read-only report:

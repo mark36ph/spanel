@@ -53,5 +53,7 @@ jobs:
         run: php tests/operations_service_client_validation.php
       - name: Run read-only server facts validation tests
         run: php tests/read_only_server_facts_validation.php
+      - name: Run website preflight CLI input tests
+        run: php bin/preflight-website.php invalid-id >/dev/null 2>&1 && exit 1 || test "$?" -eq 1
       - name: Run operation recovery validation tests
         run: php tests/operation_recovery_validation.php

@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/DomainName.php';
+
 /** Read-only best-effort facts; never shells out or changes host state. */
 final class ReadOnlyServerFacts
 {
@@ -10,7 +12,8 @@ final class ReadOnlyServerFacts
     {
         if (!is_int($request['required_disk_bytes'] ?? null) || $request['required_disk_bytes'] < 1
             || !is_int($request['website_id'] ?? null) || $request['website_id'] < 1
-            || !is_string($request['domain'] ?? null)) {
+            || !is_string($request['domain'] ?? null)
+            || DomainName::normalize($request['domain']) !== $request['domain']) {
             throw new InvalidArgumentException('Read-only preflight input is invalid.');
         }
 
