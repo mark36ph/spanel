@@ -82,8 +82,11 @@ function brokerDecryptPassword(int $websiteId, string $key): string
         || (($stat['mode'] & 0077) !== 0)) {
         throw new RuntimeException('secret_permissions_invalid');
     }
+    if ((int)$stat['size'] > 4096) {
+        throw new RuntimeException('secret_size_invalid');
+    }
     $encoded = @file_get_contents($path);
-    if (!is_string($encoded)) {
+    if (!is_string($encoded) || strlen($encoded) > 4096) {
         throw new RuntimeException('secret_unavailable');
     }
     $raw = base64_decode(trim($encoded), true);
@@ -188,7 +191,7 @@ function brokerCreateSignonSession(string $sessionId, string $username, string $
     return $sessionFile;
 }
 
-if (PHP_SAPI !== 'cli' || function_exists('posix_geteuid') && posix_geteuid() !== 0) {
+if (PHP_SAPI !== 'cli' || !function_exists('posix_geteuid') || posix_geteuid() !== 0) {
     brokerFail('must_run_as_root_cli');
 }
 if ($argc !== 1) {
