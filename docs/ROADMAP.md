@@ -51,7 +51,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [ ] Implement and security-test the root-owned restricted typed operations helper; until then, the worker fails closed and real provisioning is disabled.
 - [ ] Build a restricted local operations service; never expose arbitrary shell execution to PHP. Required contract and fail-closed behavior must be reviewed before enabling system changes.
 - [ ] Validate domains, paths, PHP versions and generated resource names; include DNS preflight checks.
-- [x] Add a deterministic, non-privileged provisioning plan for website Linux usernames, document roots, PHP-FPM pools/sockets, Nginx templates and database identifiers, with CI validation tests. [ ] Integrate it into the restricted helper and verify generated configs on Ubuntu.
+- [x] Add a deterministic, non-privileged provisioning plan for website Linux usernames, document roots, PHP-FPM pools/sockets, Nginx templates and database identifiers, with CI validation tests including hidden-file deny-rule ordering (except `.well-known`). [ ] Integrate it into the restricted helper and verify generated configs on Ubuntu.
 - [ ] Create a dedicated Linux user and PHP-FPM pool per website.
 - [ ] Create an isolated document root and safe permissions.
 - [ ] Generate Nginx config from fixed templates, test it, enable it and roll back on failure.
