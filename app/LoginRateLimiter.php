@@ -106,6 +106,17 @@ final class LoginRateLimiter
                 ]);
             }
             $pdo->commit();
+
+            // Opportunistically prune abandoned identifiers so repeated bogus
+            // usernames cannot grow this table forever. Cleanup never affects
+            // entries touched in the last two days and is deliberately bounded.
+            if (mt_rand(1, 100) === 1) {
+                try {
+                    $pdo->exec('DELETE FROM login_rate_limits WHERE updated_at < DATE_SUB(NOW(), INTERVAL 2 DAY) LIMIT 500');
+                } catch (Throwable) {
+                    // Throttling must not fail just because housekeeping did.
+                }
+            }
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
