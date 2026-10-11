@@ -42,7 +42,8 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 ## Stage 4 — Safe website provisioning
 - [x] Add the initial `operation_jobs` table migration for queued/running/succeeded/failed/rollback-required/cancelled work.
 - [x] Add an allowlisted `OperationQueue` service and CI validation tests for the website provisioning payload.
-- [x] Add a CLI-only, advisory-lock-protected worker that checks job ownership and records database metadata only after a matching helper response. [ ] Run worker tests in the Ubuntu VM.
+- [x] Add a CLI-only, advisory-lock-protected worker that checks job ownership, bounds helper output/time and records database metadata only after a matching helper response. Uncertain post-invocation failures are marked `rollback_required`. [ ] Run worker tests in the Ubuntu VM.
+- [x] Add an exact typed request/response contract and automated tests for extra fields, type mismatches, domain mismatches, PHP version and database-result mismatches.
 - [ ] Implement and security-test the root-owned restricted typed operations helper; until then, the worker fails closed and real provisioning is disabled.
 - [ ] Build a restricted local operations service; never expose arbitrary shell execution to PHP. Required contract and fail-closed behavior must be reviewed before enabling system changes.
 - [ ] Validate domains, paths, PHP versions and generated resource names; include DNS preflight checks.
