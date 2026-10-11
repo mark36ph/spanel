@@ -11,7 +11,7 @@ final class ProvisioningPlan
 {
     public static function build(int $websiteId, string $domain, string $phpVersion): array
     {
-        if ($websiteId < 1 || $websiteId > 9999999999999999999) {
+        if ($websiteId < 1) {
             throw new InvalidArgumentException('Website ID is outside the supported range.');
         }
         if (DomainName::normalize($domain) !== $domain) {
