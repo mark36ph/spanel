@@ -108,6 +108,21 @@ for php_file in \
     php -l "$APP_DIR/$php_file" >/dev/null || fail "PHP syntax validation failed for $php_file."
 done
 
+info "Running the PHP regression tests before configuring secrets or services"
+shopt -s nullglob
+PHP_TESTS=("$APP_DIR"/tests/*_validation.php)
+((${#PHP_TESTS[@]} > 0)) || fail "No PHP regression tests were found in the repository."
+for test_file in "${PHP_TESTS[@]}"; do
+    php -l "$test_file" >/dev/null || fail "PHP test syntax validation failed for $(basename "$test_file")."
+    php "$test_file" || fail "PHP regression test failed: $(basename "$test_file")."
+done
+
+info "Running Go provisioner tests before installing the privileged helper"
+(
+    cd "$APP_DIR/operations-service"
+    go test ./...
+) || fail "Go operations-service tests failed; the privileged helper will not be installed."
+
 info "Preparing protected website database credential storage"
 install -d -o root -g root -m 0750 /etc/spanel
 install -d -o root -g root -m 0711 /var/lib/spanel
