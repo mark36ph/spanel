@@ -334,27 +334,37 @@ func (p *provisioner) run(r request) error {
 
 	// Connect directly to loopback and set Host explicitly. This avoids relying
 	// on curl's DNS override behavior when verifying Nginx name-based virtual hosts.
-	const statusSeparator = "\n__SPANEl_HTTP_STATUS__:";
-	output, err := run(10*time.Second, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--noproxy", "*", "--resolve", r.Domain+":80:127.0.0.1", "--write-out", statusSeparator+"%{http_code}", "http://"+r.Domain+"/")
-	if err != nil {
-		return fmt.Errorf("local website health check command failed: %w", err)
-	}
-	separator := []byte("\n__SPANEl_HTTP_STATUS__:")
-	statusAt := bytes.LastIndex(output, separator)
-	if statusAt < 0 {
-		return errors.New("local website health check did not return an HTTP status")
-	}
-	body := output[:statusAt]
-	status := strings.TrimSpace(string(output[statusAt+len(separator):]))
-	markerFound := bytes.Contains(body, []byte("SPanel site ready"))
-	domainFound := bytes.Contains(body, []byte(r.Domain))
-	if status != "200" || !markerFound || !domainFound {
-		preview := strings.Join(strings.Fields(string(body)), " ")
-		if len(preview) > 180 {
-			preview = preview[:180]
+	const statusSeparator = "\n__SPANEl_HTTP_STATUS__:"
+	separator := []byte(statusSeparator)
+	var lastFailure error
+	// Nginx reload is graceful: old workers may briefly finish handling
+	// requests after systemctl reload returns. Retry the local health check
+	// for a short bounded period before rolling back a correctly loaded vhost.
+	for attempt := 0; attempt < 5; attempt++ {
+		output, curlErr := run(10*time.Second, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--noproxy", "*", "--resolve", r.Domain+":80:127.0.0.1", "--write-out", statusSeparator+"%{http_code}", "http://"+r.Domain+"/")
+		if curlErr != nil {
+			lastFailure = fmt.Errorf("local website health check command failed: %w", curlErr)
+		} else {
+			statusAt := bytes.LastIndex(output, separator)
+			if statusAt < 0 {
+				lastFailure = errors.New("local website health check did not return an HTTP status")
+			} else {
+				body := output[:statusAt]
+				status := strings.TrimSpace(string(output[statusAt+len(separator):]))
+				markerFound := bytes.Contains(body, []byte("SPanel site ready"))
+				domainFound := bytes.Contains(body, []byte(r.Domain))
+				if status == "200" && markerFound && domainFound {
+					lastFailure = nil
+					break
+				}
+				preview := strings.Join(strings.Fields(string(body)), " ")
+				if len(preview) > 180 { preview = preview[:180] }
+				lastFailure = fmt.Errorf("local website health check failed: HTTP %s, marker_found=%t, domain_found=%t, response_preview=%q", status, markerFound, domainFound, preview)
+			}
 		}
-		return fmt.Errorf("local website health check failed: HTTP %s, marker_found=%t, domain_found=%t, response_preview=%q", status, markerFound, domainFound, preview)
+		if attempt < 4 { time.Sleep(500 * time.Millisecond) }
 	}
+	if lastFailure != nil { return lastFailure }
 	if r.CreateDatabase { if err := p.createWebsiteDatabase(); err != nil { return err } }
 	return nil
 }
