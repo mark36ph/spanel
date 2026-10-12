@@ -330,7 +330,7 @@ func (p *provisioner) run(r request) error {
 	}
 
 	// Use the domain in the URL with an explicit loopback resolution.
-	const statusSeparator = "\\\\n__SPANEl_HTTP_STATUS__:"
+	const statusSeparator = "\\n__SPANEl_HTTP_STATUS__:";
 	output, err := run(10*time.Second, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--resolve", r.Domain+":80:127.0.0.1", "--write-out", statusSeparator+"%{http_code}", "http://"+r.Domain+"/")
 	if err != nil {
 		return fmt.Errorf("local website health check command failed: %w", err)
