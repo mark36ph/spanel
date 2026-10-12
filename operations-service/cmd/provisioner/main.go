@@ -374,20 +374,32 @@ func (p *provisioner) run(r request) error {
 }
 
  
+func phpVerificationFilename(token string) string {
+	return "spanel-php-check-" + token + ".php"
+}
+
 func (p *provisioner) verifyPHP(domain, pool string, siteUID, wwwDataGID int) error {
 	random := make([]byte, 16)
 	if _, err := rand.Read(random); err != nil { return fmt.Errorf("could not create PHP verification token: %w", err) }
 	token := hex.EncodeToString(random)
-	filename := ".spanel-php-check-" + token + ".php"
+	filename := phpVerificationFilename(token)
 	path := filepath.Join(p.publicPath, filename)
 	body := "<?php header('Content-Type: text/plain'); echo '" + token + "'; ?>"
 	if err := atomicWrite(path, body, 0640); err != nil { return fmt.Errorf("could not create temporary PHP verification file: %w", err) }
 	defer os.Remove(path)
 	if err := os.Chown(path, siteUID, wwwDataGID); err != nil { return fmt.Errorf("could not set PHP verification file ownership: %w", err) }
-	out, err := runWithOutputLimit(10*time.Second, 4096, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--noproxy", "*", "--resolve", domain+":80:127.0.0.1", "http://"+domain+"/"+filename)
+	const statusSeparator = "\\n__SPANEl_PHP_STATUS__:"
+	separator := []byte(statusSeparator)
+	out, err := runWithOutputLimit(10*time.Second, 4096, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--noproxy", "*", "--resolve", domain+":80:127.0.0.1", "--write-out", statusSeparator+"%{http_code}", "http://"+domain+"/"+filename)
 	if err != nil { return fmt.Errorf("PHP-FPM verification request failed: %w", err) }
-	if !bytes.Equal(bytes.TrimSpace(out), []byte(token)) {
-		return fmt.Errorf("PHP-FPM verification failed for pool %s: response did not match the one-time token", pool)
+	statusAt := bytes.LastIndex(out, separator)
+	if statusAt < 0 {
+		return fmt.Errorf("PHP-FPM verification failed for pool %s: HTTP status was not returned", pool)
+	}
+	bodyOut := bytes.TrimSpace(out[:statusAt])
+	status := strings.TrimSpace(string(out[statusAt+len(separator):]))
+	if status != "200" || !bytes.Equal(bodyOut, []byte(token)) {
+		return fmt.Errorf("PHP-FPM verification failed for pool %s: HTTP %s, token_match=%t", pool, status, bytes.Equal(bodyOut, []byte(token)))
 	}
 	return nil
 }
