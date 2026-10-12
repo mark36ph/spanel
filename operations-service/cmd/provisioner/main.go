@@ -296,7 +296,7 @@ func (p *provisioner) run(r request) error {
 
 	socket := "/run/php/"+pool+".sock"
 	poolConfig := fmt.Sprintf("[%s]\nuser = %s\ngroup = %s\nlisten = %s\nlisten.owner = www-data\nlisten.group = www-data\nlisten.mode = 0660\npm = ondemand\npm.max_children = 5\npm.process_idle_timeout = 10s\npm.max_requests = 500\nclear_env = yes\nsecurity.limit_extensions = .php\n", pool, username, username, socket)
-	nginxConfig := fmt.Sprintf("server {\n    listen 80;\n    listen [::]:80;\n    server_name %s;\n    root %s/public;\n    index index.php index.html;\n    server_tokens off;\n    access_log /var/log/nginx/%s-access.log;\n    error_log /var/log/nginx/%s-error.log warn;\n    location / { try_files $uri $uri/ /index.php?$query_string; }\n    location ~ /\\.(?!well-known(?:/|$)).* { deny all; }\n    location ~ \\.php$ { include snippets/fastcgi-php.conf; fastcgi_pass unix:%s; }\n}\n", r.Domain, root, pool, pool, socket)
+	nginxConfig := fmt.Sprintf("server {\n    listen 80;\n    listen [::]:80;\n    server_name %s;\n    root %s/public;\n    index index.html index.php;\n    server_tokens off;\n    access_log /var/log/nginx/%s-access.log;\n    error_log /var/log/nginx/%s-error.log warn;\n    location / { try_files $uri $uri/ =404; }\n    location ~ /\\.(?!well-known(?:/|$)).* { deny all; }\n    location ~ \\.php$ { try_files $uri =404; include snippets/fastcgi-php.conf; fastcgi_pass unix:%s; }\n}\n", r.Domain, root, pool, pool, socket)
 	if err := atomicWrite(p.poolPath, poolConfig, 0644); err != nil { return err }
 	p.poolInstalled = true
 	if _, err := run(15*time.Second, "/usr/sbin/php-fpm"+p.phpVersion, "-t"); err != nil { return err }
