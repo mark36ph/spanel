@@ -4,7 +4,7 @@ require_once dirname(__DIR__) . '/app/Security.php';
 $config = require dirname(__DIR__) . '/config/config.local.php';
 Security::startSession($config);
 require_once dirname(__DIR__) . '/app/View.php';
-Auth::requireLogin();
+$admin = Auth::requireLogin();
 
 $pdo = Database::connection();
 
