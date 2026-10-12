@@ -332,7 +332,7 @@ func (p *provisioner) run(r request) error {
 	// Connect directly to loopback and set Host explicitly. This avoids relying
 	// on curl's DNS override behavior when verifying Nginx name-based virtual hosts.
 	const statusSeparator = "\n__SPANEl_HTTP_STATUS__:";
-	output, err := run(10*time.Second, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--noproxy", "*", "--header", "Host: "+r.Domain, "--write-out", statusSeparator+"%{http_code}", "http://127.0.0.1/")
+	output, err := run(10*time.Second, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--noproxy", "*", "--resolve", r.Domain+":80:127.0.0.1", "--write-out", statusSeparator+"%{http_code}", "http://"+r.Domain+"/")
 	if err != nil {
 		return fmt.Errorf("local website health check command failed: %w", err)
 	}
