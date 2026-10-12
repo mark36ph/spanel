@@ -168,6 +168,7 @@ renderHeader((string)$website['name'], 'sites');
 <?php if ($error !== ''): ?><div class="alert"><?= Security::escape($error) ?></div><?php endif; ?>
 <?php if ($success !== ''): ?><div class="notice"><strong>Saved</strong><p><?= Security::escape($success) ?></p></div><?php endif; ?>
 <?php if (($_GET['pma'] ?? '') === 'error'): ?><div class="alert">The secure phpMyAdmin handoff could not be completed. Check that phpMyAdmin and its restricted credential broker are installed, then try again.</div><?php endif; ?>
+<div class="section-heading"><div><h3>Website files</h3><p class="muted">Browse folders and preview text files safely. Changes are disabled in this first version.</p></div><a class="secondary-button link-button" href="/files.php?id=<?= (int)$id ?>">Open file manager →</a></div>
 <div class="stat-grid">
 <article class="stat-card"><div class="stat-top"><span>Status</span><span class="stat-icon green">●</span></div><strong class="env-value"><?= Security::escape($website['status']) ?></strong><small><?= $website['status'] === 'active' ? 'Local site health check passed' : 'See recent operation results for setup status' ?></small></article>
 <article class="stat-card"><div class="stat-top"><span>PHP version</span><span class="stat-icon">⌘</span></div><strong class="env-value"><?= Security::escape($website['php_version'] ?? 'Not set') ?></strong><small>Selected during provisioning and checked by the helper</small></article>
