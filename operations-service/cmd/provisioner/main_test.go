@@ -3,8 +3,20 @@ package main
 import (
 	"bytes"
 	"os"
+	"strings"
 	"testing"
 )
+
+func TestPHPVerificationFilenameIsNotHidden(t *testing.T) {
+	token := "0123456789abcdef"
+	filename := phpVerificationFilename(token)
+	if strings.HasPrefix(filename, ".") {
+		t.Fatalf("PHP verification filename must not be hidden: %q", filename)
+	}
+	if filename != "spanel-php-check-"+token+".php" {
+		t.Fatalf("unexpected PHP verification filename: %q", filename)
+	}
+}
 
 func TestValidDomain(t *testing.T) {
 	for _, domain := range []string{"example.com", "site-1.example.co.uk", "xn--bcher-kva.example"} {
