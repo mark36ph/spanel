@@ -40,6 +40,7 @@ type response struct {
 	OK bool `json:"ok"`
 	Error string `json:"error,omitempty"`
 	Bytes int `json:"bytes,omitempty"`
+	Content string `json:"content,omitempty"`
 }
 
 func main() {
@@ -80,9 +81,11 @@ func main() {
 	}
 	defer syscall.Close(rootFD)
 	var n int
+	var content string
 	switch req.Operation {
 	case "read":
-		n, err = readFile(rootFD, parts)
+		content, err = readFile(rootFD, parts)
+		n = len(content)
 	case "write":
 		n, err = writeFile(rootFD, parts, req.Content)
 	case "rename":
@@ -101,7 +104,7 @@ func main() {
 		respond(false, publicError(err), 0)
 		return
 	}
-	respond(true, "", n)
+	respondWithContent(true, "", n, content)
 }
 
 func splitPath(value string) ([]string, error) {
@@ -129,18 +132,20 @@ func openParent(rootFD int, parts []string) (int, string, error) {
 	return fd, parts[len(parts)-1], nil
 }
 
-func readFile(rootFD int, parts []string) (int, error) {
+func readFile(rootFD int, parts []string) (string, error) {
 	parent, name, err := openParent(rootFD, parts)
-	if err != nil { return 0, err }
+	if err != nil { return "", err }
 	defer syscall.Close(parent)
 	fd, err := syscall.Openat(parent, name, syscall.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_CLOEXEC, 0)
-	if err != nil { return 0, err }
+	if err != nil { return "", err }
 	defer syscall.Close(fd)
 	var st syscall.Stat_t
 	if err := syscall.Fstat(fd, &st); err != nil || st.Mode&syscall.S_IFMT != syscall.S_IFREG || st.Size > maxContent {
-		return 0, errors.New("file_not_allowed")
+		return "", errors.New("file_not_allowed")
 	}
-	return int(st.Size), nil
+	data, err := io.ReadAll(io.LimitReader(os.NewFile(uintptr(fd), "website-file"), maxContent+1))
+	if err != nil || len(data) > maxContent || bytes.IndexByte(data, 0) >= 0 { return "", errors.New("file_not_allowed") }
+	return string(data), nil
 }
 
 func writeFile(rootFD int, parts []string, encoded string) (int, error) {
@@ -222,5 +227,9 @@ func publicError(err error) string {
 }
 
 func respond(ok bool, code string, n int) {
-	_ = json.NewEncoder(os.Stdout).Encode(response{OK: ok, Error: code, Bytes: n})
+	respondWithContent(ok, code, n, "")
+}
+
+func respondWithContent(ok bool, code string, n int, content string) {
+	_ = json.NewEncoder(os.Stdout).Encode(response{OK: ok, Error: code, Bytes: n, Content: content})
 }
