@@ -314,12 +314,24 @@ func (p *provisioner) run(r request) error {
 	}
 	if err := runCommand(15*time.Second, "/bin/systemctl", "reload", "nginx"); err != nil { return err }
 	p.nginxReloaded = true
-	// Capture the HTTP status with the body so a failed check can distinguish
-	// routing (wrong virtual host), filesystem/permission errors, and an
-	// unexpected response. The helper writes details only to stderr, which the
-	// panel worker records in the protected server log.
-	const statusSeparator = "\\n__SPANEl_HTTP_STATUS__:"
-	output, err := run(10*time.Second, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--header", "Host: "+r.Domain, "--write-out", statusSeparator+"%{http_code}", "http://127.0.0.1/")
+
+	// Verify the generated virtual host appears in Nginx's effective config.
+	// nginx -t can succeed even if the expected site is not included.
+	loadedConfig, err := run(15*time.Second, "/usr/sbin/nginx", "-T")
+	if err != nil {
+		return fmt.Errorf("could not inspect effective Nginx configuration after reload: %w", err)
+	}
+	configText := string(loadedConfig)
+	configPathLoaded := strings.Contains(configText, "# configuration file "+p.nginxLink+":")
+	serverNameLoaded := strings.Contains(configText, "server_name "+r.Domain+";")
+	rootLoaded := strings.Contains(configText, "root "+root+"/public;")
+	if !configPathLoaded || !serverNameLoaded || !rootLoaded {
+		return fmt.Errorf("generated Nginx virtual host missing from effective configuration after reload (site_path=%t, server_name=%t, document_root=%t)", configPathLoaded, serverNameLoaded, rootLoaded)
+	}
+
+	// Use the domain in the URL with an explicit loopback resolution.
+	const statusSeparator = "\\\\n__SPANEl_HTTP_STATUS__:"
+	output, err := run(10*time.Second, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--resolve", r.Domain+":80:127.0.0.1", "--write-out", statusSeparator+"%{http_code}", "http://"+r.Domain+"/")
 	if err != nil {
 		return fmt.Errorf("local website health check command failed: %w", err)
 	}
