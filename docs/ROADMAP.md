@@ -38,7 +38,7 @@ This is the source of truth for SPanel progress. All changes go directly to `mai
 - [x] Add the first forward migration for `website_domains`, preserving `websites.domain` for compatibility and refusing invalid/normalized-colliding domains or websites without server assignments. [ ] Run and test the migration against fresh and representative legacy databases in the Ubuntu VM.
 - [x] Add server inventory UI and metadata-only server registration, and add local-server registration to the installer draft. [ ] Verify registration in the Ubuntu VM.
 - [x] Add local read-only service health snapshots and a scheduled collector for Nginx, MariaDB, PHP-FPM, the worker timer and disk space; VM verification remains outstanding. [ ] Track remote server health, maintenance state, capabilities and panel/agent version.
-- [x] Add server inventory, website inventory links and per-website management overview. [x] Add website inventory search/status filters and latest-operation visibility. [x] Add server inventory search/status/environment filters. [ ] Verify local health checks in the Ubuntu VM.
+- [x] Add server inventory, website inventory links and per-website management overview. [x] Add website inventory search/status filters and latest-operation visibility. [x] Add server inventory search/status/environment filters. [ ] Verify local health checks in the Ubuntu VM. [x] Add a local-only, read-only website file browser with path containment, hidden-file/symlink exclusion and bounded text previews. [ ] Add upload/edit/delete through a restricted website-scoped helper and audit logging.
 - [ ] Support adding more servers later without changing the website model.
 
 ## Stage 4 — Safe website provisioning
