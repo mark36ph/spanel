@@ -99,18 +99,28 @@ if (PHP_OS_FAMILY !== 'Windows') {
         && ($helperMode & 0022) === 0;
     doctorCheck('Restricted website provisioner', $helperReady, 'root-owned helper is present and not group/world writable', 'Installer must build/install /usr/local/sbin/spanel-ops with root ownership and safe permissions.', true);
 
-    $keyPath = '/etc/spanel/database-secrets.key';
-    $keyStat = @lstat($keyPath);
-    $keyReady = $keyStat !== false
-        && is_file($keyPath)
-        && (int)($keyStat['uid'] ?? -1) === 0
-        && (((int)($keyStat['mode'] ?? 0)) & 0077) === 0;
-    $secretDir = @lstat('/var/lib/spanel/secrets');
-    $secretDirReady = $secretDir !== false
-        && is_dir('/var/lib/spanel/secrets')
-        && (int)($secretDir['uid'] ?? -1) === 0
-        && (((int)($secretDir['mode'] ?? 0)) & 0077) === 0;
-    doctorCheck('Encrypted database secret store', $keyReady && $secretDirReady, 'root-only key and secret directory are present', 'Run the first-install setup on a clean Ubuntu VM; the panel account must not be able to read the key or secret files.', true);
+    // /etc/spanel is intentionally inaccessible to the unprivileged panel
+    // account. Only root can verify the key's metadata; do not mistake that
+    // expected access denial for a missing or insecure key.
+    $secretStoreReady = false;
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        $keyPath = '/etc/spanel/database-secrets.key';
+        $keyStat = @lstat($keyPath);
+        $keyReady = $keyStat !== false
+            && is_file($keyPath)
+            && (int)($keyStat['uid'] ?? -1) === 0
+            && (((int)($keyStat['mode'] ?? 0)) & 0077) === 0;
+        $secretDirPath = '/var/lib/spanel/secrets';
+        $secretDir = @lstat($secretDirPath);
+        $secretDirReady = $secretDir !== false
+            && is_dir($secretDirPath)
+            && (int)($secretDir['uid'] ?? -1) === 0
+            && (((int)($secretDir['mode'] ?? 0)) & 0077) === 0;
+        $secretStoreReady = $keyReady && $secretDirReady;
+        doctorCheck('Encrypted database secret store', $secretStoreReady, 'root-only key and secret directory are present', 'Check root ownership and permissions of /etc/spanel/database-secrets.key and /var/lib/spanel/secrets.', true);
+    } else {
+        doctorCheck('Encrypted database secret store', false, '', 'Run this read-only check as root to inspect the protected key metadata: sudo php ' . $root . '/bin/doctor.php.', true);
+    }
 
     $timerReady = is_file('/etc/systemd/system/spanel-worker.timer');
     doctorCheck('Provisioning queue timer', $timerReady, 'systemd timer unit is installed', 'Install the spanel-worker.timer unit and enable it with systemd.', true);
