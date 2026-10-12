@@ -323,7 +323,7 @@ func (p *provisioner) run(r request) error {
 	if err != nil {
 		return fmt.Errorf("local website health check command failed: %w", err)
 	}
-	separator := []byte("\\n__SPANEl_HTTP_STATUS__:")
+	separator := []byte("\n__SPANEl_HTTP_STATUS__:")
 	statusAt := bytes.LastIndex(output, separator)
 	if statusAt < 0 {
 		return errors.New("local website health check did not return an HTTP status")
