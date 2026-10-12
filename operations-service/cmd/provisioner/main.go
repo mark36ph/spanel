@@ -449,8 +449,10 @@ func (p *provisioner) captureFailureDiagnostics(r request, cause error) {
 }
 
 func (p *provisioner) rollback() {
+	// Remove only resources tracked as created by this operation. Never
+	// recursively delete a site directory during rollback.
 	if p.secretStored && p.secretPath != "" {
-		_ = os.Remove(p.secretPath)
+		_ = removeCreatedRegularFile(p.secretPath)
 	}
 	if p.createdDatabaseUser && p.databaseUser != "" {
 		_ = runWithInput(10*time.Second, "/usr/bin/mariadb", "DROP USER IF EXISTS '"+p.databaseUser+"'@'localhost';\n", "--batch", "--skip-column-names")
@@ -459,13 +461,16 @@ func (p *provisioner) rollback() {
 		_ = runWithInput(10*time.Second, "/usr/bin/mariadb", "DROP DATABASE IF EXISTS "+p.databaseName+";\n", "--batch", "--skip-column-names")
 	}
 	if p.nginxLinkCreated {
-		_ = os.Remove(p.nginxLink)
+		// Remove only the symlink that points to this job's generated vhost.
+		if target, err := os.Readlink(p.nginxLink); err == nil && target == p.nginxPath {
+			_ = os.Remove(p.nginxLink)
+		}
 	}
 	if p.nginxInstalled {
-		_ = os.Remove(p.nginxPath)
+		_ = removeCreatedRegularFile(p.nginxPath)
 	}
 	if p.poolInstalled {
-		_ = os.Remove(p.poolPath)
+		_ = removeCreatedRegularFile(p.poolPath)
 	}
 	if p.nginxInstalled || p.nginxReloaded {
 		if _, err := run(15*time.Second, "/usr/sbin/nginx", "-t"); err == nil {
@@ -476,17 +481,38 @@ func (p *provisioner) rollback() {
 		_ = runCommand(15*time.Second, "/bin/systemctl", "reload", "php"+p.phpVersion+"-fpm")
 	}
 	if p.createdIndex && p.indexPath != "" {
-		_ = os.Remove(p.indexPath)
+		_ = removeCreatedRegularFile(p.indexPath)
 	}
 	if p.createdPublic {
-		_ = os.Remove(p.publicPath)
+		_ = removeCreatedEmptyDirectory(p.publicPath)
 	}
 	if p.createdUser {
-		_ = runCommand(10*time.Second, "/usr/sbin/userdel", p.username)
+		_ = runCommand(10*time.Second, "/usr/sbin/userdel", "--", p.username)
 	}
 	if p.createdRoot {
-		_ = os.Remove(p.rootPath)
+		_ = removeCreatedEmptyDirectory(p.rootPath)
 	}
+}
+
+// removeCreatedRegularFile unlinks only a regular file, never a symlink or directory.
+func removeCreatedRegularFile(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil { return err }
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("refusing to remove non-regular rollback target %s", path)
+	}
+	return os.Remove(path)
+}
+
+// removeCreatedEmptyDirectory only removes an empty, real directory. If
+// content was added after provisioning began, it remains untouched.
+func removeCreatedEmptyDirectory(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil { return err }
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("refusing to remove non-directory rollback target %s", path)
+	}
+	return os.Remove(path)
 }
 
 func databaseIdentifiers(websiteID int64) (string, string, string, error) {

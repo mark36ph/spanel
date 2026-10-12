@@ -57,3 +57,28 @@ func TestDatabaseSecretEncryptionAuthenticatesCiphertext(t *testing.T) {
 	if _, err := openSecret(wrongKey, encoded); err == nil { t.Fatal("wrong encryption key accepted") }
 	if _, err := openSecret(key, []byte("not-base64!!!")); err == nil { t.Fatal("invalid ciphertext accepted") }
 }
+
+ 
+func TestRollbackRemovalHelpersPreserveUnexpectedResources(t *testing.T) {
+	dir := t.TempDir()
+	regular := dir + "/created.conf"
+	if err := os.WriteFile(regular, []byte("created"), 0600); err != nil { t.Fatal(err) }
+	if err := removeCreatedRegularFile(regular); err != nil { t.Fatalf("remove regular file: %v", err) }
+	if _, err := os.Lstat(regular); !os.IsNotExist(err) { t.Fatalf("regular file still exists or lstat failed: %v", err) }
+
+	target := dir + "/target"
+	if err := os.WriteFile(target, []byte("keep"), 0600); err != nil { t.Fatal(err) }
+	link := dir + "/link"
+	if err := os.Symlink(target, link); err != nil { t.Fatal(err) }
+	if err := removeCreatedRegularFile(link); err == nil { t.Fatal("symlink was accepted as a regular file") }
+	if _, err := os.Lstat(link); err != nil { t.Fatalf("symlink should remain: %v", err) }
+	if data, err := os.ReadFile(target); err != nil || string(data) != "keep" { t.Fatalf("symlink target changed: %q, %v", data, err) }
+
+	nonEmpty := dir + "/non-empty"
+	if err := os.Mkdir(nonEmpty, 0700); err != nil { t.Fatal(err) }
+	if err := os.WriteFile(nonEmpty+"/user-data.txt", []byte("keep"), 0600); err != nil { t.Fatal(err) }
+	if err := removeCreatedEmptyDirectory(nonEmpty); err == nil { t.Fatal("non-empty directory was removed") }
+	if data, err := os.ReadFile(nonEmpty+"/user-data.txt"); err != nil || string(data) != "keep" { t.Fatalf("directory content changed: %q, %v", data, err) }
+	if err := os.Remove(nonEmpty+"/user-data.txt"); err != nil { t.Fatal(err) }
+	if err := removeCreatedEmptyDirectory(nonEmpty); err != nil { t.Fatalf("remove empty created directory: %v", err) }
+}
