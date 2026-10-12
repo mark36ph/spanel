@@ -329,9 +329,10 @@ func (p *provisioner) run(r request) error {
 		return fmt.Errorf("generated Nginx virtual host missing from effective configuration after reload (site_path=%t, server_name=%t, document_root=%t)", configPathLoaded, serverNameLoaded, rootLoaded)
 	}
 
-	// Use the domain in the URL with an explicit loopback resolution.
+	// Connect directly to loopback and set Host explicitly. This avoids relying
+	// on curl's DNS override behavior when verifying Nginx name-based virtual hosts.
 	const statusSeparator = "\\n__SPANEl_HTTP_STATUS__:";
-	output, err := run(10*time.Second, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--resolve", r.Domain+":80:127.0.0.1", "--write-out", statusSeparator+"%{http_code}", "http://"+r.Domain+"/")
+	output, err := run(10*time.Second, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--header", "Host: "+r.Domain, "--write-out", statusSeparator+"%{http_code}", "http://127.0.0.1/")
 	if err != nil {
 		return fmt.Errorf("local website health check command failed: %w", err)
 	}
