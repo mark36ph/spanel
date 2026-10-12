@@ -89,12 +89,7 @@ func main() {
 	case "write":
 		n, err = writeFile(rootFD, parts, req.Content)
 	case "rename":
-		newParts, e := splitPath(req.NewPath)
-		if e != nil || !textExtensions[strings.TrimPrefix(strings.ToLower(filepath.Ext(newParts[len(newParts)-1])), ".")] {
-			err = errors.New("invalid_path")
-		} else {
-			err = renameFile(rootFD, parts, newParts)
-		}
+		err = errors.New("unsupported_operation")
 	case "delete":
 		err = deleteFile(rootFD, parts)
 	default:
@@ -143,8 +138,14 @@ func readFile(rootFD int, parts []string) (string, error) {
 	if err := syscall.Fstat(fd, &st); err != nil || st.Mode&syscall.S_IFMT != syscall.S_IFREG || st.Size > maxContent {
 		return "", errors.New("file_not_allowed")
 	}
-	data, err := io.ReadAll(io.LimitReader(os.NewFile(uintptr(fd), "website-file"), maxContent+1))
-	if err != nil || len(data) > maxContent || bytes.IndexByte(data, 0) >= 0 { return "", errors.New("file_not_allowed") }
+	data := make([]byte, int(st.Size))
+	offset := 0
+	for offset < len(data) {
+		n, e := syscall.Read(fd, data[offset:])
+		if e != nil || n == 0 { return "", errors.New("file_not_allowed") }
+		offset += n
+	}
+	if bytes.IndexByte(data, 0) >= 0 { return "", errors.New("file_not_allowed") }
 	return string(data), nil
 }
 
