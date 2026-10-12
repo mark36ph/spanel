@@ -33,6 +33,16 @@ $jobs = $stmt->fetchAll();
 $rollbackCount = (int)$pdo->query("SELECT COUNT(*) FROM operation_jobs WHERE status = 'rollback_required'")->fetchColumn();
 $queuedCount = (int)$pdo->query("SELECT COUNT(*) FROM operation_jobs WHERE status = 'queued'")->fetchColumn();
 
+// Reflect the actual local helper state instead of showing a permanent, stale warning.
+$helperPath = '/usr/local/sbin/spanel-ops';
+clearstatcache(true, $helperPath);
+$helperStat = is_link($helperPath) ? false : @lstat($helperPath);
+$helperReady = is_array($helperStat)
+    && is_file($helperPath)
+    && is_executable($helperPath)
+    && (int)($helperStat['uid'] ?? -1) === 0
+    && (((int)($helperStat['mode'] ?? 0)) & 0022) === 0;
+
 renderHeader('Operations', 'operations');
 ?>
 <div class="welcome-row"><div><p class="muted">BACKGROUND TASKS</p><h2>Operations queue</h2><p class="muted">Inspect queued work, completed results and recovery-required jobs.</p></div></div>
@@ -41,7 +51,11 @@ renderHeader('Operations', 'operations');
 <article class="stat-card"><div class="stat-top"><span>Recovery required</span><span class="stat-icon">!</span></div><strong><?= $rollbackCount ?></strong><small>Inspect before retrying</small></article>
 </div>
 <?php if ($rollbackCount > 0): ?><div class="alert"><strong>Manual recovery required.</strong> One or more jobs may have changed server resources without a confirmed metadata commit. Inspect the affected server before retrying or deleting anything.</div><?php endif; ?>
-<div class="notice"><strong>Development limitation</strong><p>The CLI worker and strict request contract are present, but the root-owned restricted operations helper is not installed. Provisioning therefore fails closed and must not be treated as operational yet.</p></div>
+<?php if ($helperReady): ?>
+<div class="notice"><strong>Restricted operations helper detected</strong><p>The helper exists with root ownership and safe file permissions. This check does not prove provisioning will succeed; review job results and server state before retrying a failed operation.</p></div>
+<?php else: ?>
+<div class="notice"><strong>Provisioning unavailable</strong><p>The root-owned restricted operations helper is missing or fails its ownership/permission checks. Provisioning remains disabled until the helper is installed securely using the installer on a clean VM.</p></div>
+<?php endif; ?>
 <div class="notice"><strong>Interrupted-job recovery</strong><p>Before changing a stale job, inspect the server. The CLI recovery tool is read-only by default:</p><p><code>php bin/reconcile-operations.php</code></p><p>Only after reviewing the listed IDs, explicitly mark stale jobs for manual recovery with <code>php bin/reconcile-operations.php --minutes=15 --apply</code>. It never retries jobs or deletes server resources.</p></div>
 <div class="section-heading"><div><h3>Recent jobs</h3><p class="muted">Showing up to 100 jobs<?= $statusFilter !== '' ? ' with status ' . Security::escape($statusFilter) : '' ?>.</p></div></div>
 <div class="login-card"><form method="get" class="form-stack"><label>Filter by status<select name="status"><option value="">All statuses</option><?php foreach ($allowedStatuses as $status): ?><option value="<?= Security::escape($status) ?>" <?= $statusFilter === $status ? 'selected' : '' ?>><?= Security::escape(str_replace('_', ' ', ucfirst($status))) ?></option><?php endforeach; ?></select></label><button class="primary-button" type="submit">Apply filter</button><?php if ($statusFilter !== ''): ?><a class="secondary-button link-button" href="/operations.php">Clear filter</a><?php endif; ?></form></div>
