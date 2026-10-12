@@ -314,12 +314,30 @@ func (p *provisioner) run(r request) error {
 	}
 	if err := runCommand(15*time.Second, "/bin/systemctl", "reload", "nginx"); err != nil { return err }
 	p.nginxReloaded = true
-	body, err := run(10*time.Second, "/usr/bin/curl", "--fail", "--silent", "--show-error", "--max-time", "5", "--header", "Host: "+r.Domain, "http://127.0.0.1/")
+	// Capture the HTTP status with the body so a failed check can distinguish
+	// routing (wrong virtual host), filesystem/permission errors, and an
+	// unexpected response. The helper writes details only to stderr, which the
+	// panel worker records in the protected server log.
+	const statusSeparator = "\\n__SPANEl_HTTP_STATUS__:"
+	output, err := run(10*time.Second, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--header", "Host: "+r.Domain, "--write-out", statusSeparator+"%{http_code}", "http://127.0.0.1/")
 	if err != nil {
 		return fmt.Errorf("local website health check command failed: %w", err)
 	}
-	if !bytes.Contains(body, []byte("SPanel site ready")) || !bytes.Contains(body, []byte(r.Domain)) {
-		return errors.New("local website health check response did not contain the expected site marker and domain")
+	separator := []byte("\\n__SPANEl_HTTP_STATUS__:")
+	statusAt := bytes.LastIndex(output, separator)
+	if statusAt < 0 {
+		return errors.New("local website health check did not return an HTTP status")
+	}
+	body := output[:statusAt]
+	status := strings.TrimSpace(string(output[statusAt+len(separator):]))
+	markerFound := bytes.Contains(body, []byte("SPanel site ready"))
+	domainFound := bytes.Contains(body, []byte(r.Domain))
+	if status != "200" || !markerFound || !domainFound {
+		preview := strings.Join(strings.Fields(string(body)), " ")
+		if len(preview) > 180 {
+			preview = preview[:180]
+		}
+		return fmt.Errorf("local website health check failed: HTTP %s, marker_found=%t, domain_found=%t, response_preview=%q", status, markerFound, domainFound, preview)
 	}
 	if r.CreateDatabase { if err := p.createWebsiteDatabase(); err != nil { return err } }
 	return nil
