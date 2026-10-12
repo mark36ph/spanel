@@ -33,6 +33,8 @@ A dry-run/preflight mode and clear logs should be added before production use. I
 
 ## In-panel updates
 
+- [x] Add an authenticated Updates page that displays installed Git commit metadata when available and explains the safe update prerequisites. The apply action intentionally remains disabled until the restricted updater, sudo policy, backup/rollback checks and audit logging are installed and tested.
+
 The Updates page should show the currently installed version, latest approved version, release notes, and whether a backup/preflight has passed. Applying an update requires an explicit administrator action and a clear confirmation.
 
 Update flow:
