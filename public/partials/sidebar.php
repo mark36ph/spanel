@@ -5,6 +5,7 @@ $items = [
     ['servers', '▦', 'Servers', '/servers.php'],
     ['health', '♥', 'Server health', '/health.php'],
     ['operations', '◷', 'Operations', '/operations.php'],
+    ['updates', '↻', 'Updates', '/updates.php'],
     ['audit', '≡', 'Audit log', '/audit.php'],
     ['email', '✉', 'Email accounts', '#'],
     ['databases', '▤', 'Databases', '#'],
