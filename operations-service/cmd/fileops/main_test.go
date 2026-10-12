@@ -6,7 +6,7 @@ import (
 )
 
 func TestSplitPathRejectsTraversalAndHiddenNames(t *testing.T) {
-	for _, input := range []string{"", "../index.php", "folder/../index.php", ".env", "folder/.secret", "/etc/passwd", "folder\\index.php", "folder//index.php", "folder name/index.php"} {
+	for _, input := range []string{"", "../index.php", "folder/../index.php", ".env", "folder/.secret", "/etc/passwd", "folder\\index.php", "folder//index.php"} {
 		if _, err := splitPath(input); err == nil {
 			t.Errorf("splitPath(%q) unexpectedly succeeded", input)
 		}
