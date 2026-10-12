@@ -363,6 +363,13 @@ server {
     }
 }
 NGINX
+# Ubuntu's packaged default site is a default_server and would intercept the
+# provisioner's localhost health check for newly-created virtual hosts.
+# This installer only runs on a clean VM, so remove that exact packaged link.
+if [[ -L /etc/nginx/sites-enabled/default ]] \
+    && [[ "$(readlink -f /etc/nginx/sites-enabled/default)" == "/etc/nginx/sites-available/default" ]]; then
+    rm /etc/nginx/sites-enabled/default
+fi
 ln -s "$NGINX_SITE" "$NGINX_LINK"
 if ! nginx -t; then
     rm -f "$NGINX_LINK" "$NGINX_SITE"
