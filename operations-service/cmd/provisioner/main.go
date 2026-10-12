@@ -388,7 +388,7 @@ func (p *provisioner) verifyPHP(domain, pool string, siteUID, wwwDataGID int) er
 	if err := atomicWrite(path, body, 0640); err != nil { return fmt.Errorf("could not create temporary PHP verification file: %w", err) }
 	defer os.Remove(path)
 	if err := os.Chown(path, siteUID, wwwDataGID); err != nil { return fmt.Errorf("could not set PHP verification file ownership: %w", err) }
-	const statusSeparator = "\\n__SPANEl_PHP_STATUS__:"
+	const statusSeparator = "\n__SPANEl_PHP_STATUS__:"
 	separator := []byte(statusSeparator)
 	out, err := runWithOutputLimit(10*time.Second, 4096, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--noproxy", "*", "--resolve", domain+":80:127.0.0.1", "--write-out", statusSeparator+"%{http_code}", "http://"+domain+"/"+filename)
 	if err != nil { return fmt.Errorf("PHP-FPM verification request failed: %w", err) }
