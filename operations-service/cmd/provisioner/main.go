@@ -317,7 +317,7 @@ func (p *provisioner) run(r request) error {
 
 	// Verify the generated virtual host appears in Nginx's effective config.
 	// nginx -t can succeed even if the expected site is not included.
-	loadedConfig, err := run(15*time.Second, "/usr/sbin/nginx", "-T")
+	loadedConfig, err := runWithOutputLimit(15*time.Second, 262144, "/usr/sbin/nginx", "-T")
 	if err != nil {
 		return fmt.Errorf("could not inspect effective Nginx configuration after reload: %w", err)
 	}
@@ -543,11 +543,15 @@ func atomicWrite(path, content string, mode os.FileMode) error {
 	if err := os.Link(tmp, path); err != nil { return err }; _ = os.Remove(tmp); return nil
 }
 func run(timeout time.Duration, name string, args ...string) ([]byte,error) {
+	return runWithOutputLimit(timeout, 8192, name, args...)
+}
+
+func runWithOutputLimit(timeout time.Duration, outputLimit int, name string, args ...string) ([]byte,error) {
 	ctx,cancel:=context.WithTimeout(context.Background(),timeout); defer cancel()
 	cmd:=exec.CommandContext(ctx,name,args...)
 	cmd.Env=[]string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin","LANG=C","LC_ALL=C"}
 	var stdout,stderr bytes.Buffer
-	cmd.Stdout=&limitedWriter{w:&stdout,limit:8192}
+	cmd.Stdout=&limitedWriter{w:&stdout,limit:outputLimit}
 	cmd.Stderr=&limitedWriter{w:&stderr,limit:8192}
 	err:=cmd.Run()
 	if ctx.Err()!=nil{return nil,ctx.Err()}
