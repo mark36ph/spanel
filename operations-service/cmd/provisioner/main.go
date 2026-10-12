@@ -365,11 +365,33 @@ func (p *provisioner) run(r request) error {
 		if attempt < 4 { time.Sleep(500 * time.Millisecond) }
 	}
 	if lastFailure != nil { return lastFailure }
+
+	// Verify PHP is actually executed by this site's dedicated FPM pool, not
+	// merely that the static placeholder page is served by Nginx.
+	if err := p.verifyPHP(r.Domain, pool, siteUID, wwwDataGID); err != nil { return err }
 	if r.CreateDatabase { if err := p.createWebsiteDatabase(); err != nil { return err } }
 	return nil
 }
 
  
+func (p *provisioner) verifyPHP(domain, pool string, siteUID, wwwDataGID int) error {
+	random := make([]byte, 16)
+	if _, err := rand.Read(random); err != nil { return fmt.Errorf("could not create PHP verification token: %w", err) }
+	token := hex.EncodeToString(random)
+	filename := ".spanel-php-check-" + token + ".php"
+	path := filepath.Join(p.publicPath, filename)
+	body := "<?php header('Content-Type: text/plain'); echo '" + token + "'; ?>"
+	if err := atomicWrite(path, body, 0640); err != nil { return fmt.Errorf("could not create temporary PHP verification file: %w", err) }
+	defer os.Remove(path)
+	if err := os.Chown(path, siteUID, wwwDataGID); err != nil { return fmt.Errorf("could not set PHP verification file ownership: %w", err) }
+	out, err := runWithOutputLimit(10*time.Second, 4096, "/usr/bin/curl", "--silent", "--show-error", "--max-time", "5", "--noproxy", "*", "--resolve", domain+":80:127.0.0.1", "http://"+domain+"/"+filename)
+	if err != nil { return fmt.Errorf("PHP-FPM verification request failed: %w", err) }
+	if !bytes.Equal(bytes.TrimSpace(out), []byte(token)) {
+		return fmt.Errorf("PHP-FPM verification failed for pool %s: response did not match the one-time token", pool)
+	}
+	return nil
+}
+
 // captureFailureDiagnostics runs before rollback so the generated vhost and
 // the routing response survive removal of partially provisioned resources.
 // Files are root-only and deliberately omit the full nginx -T dump, which may
