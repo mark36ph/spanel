@@ -73,6 +73,7 @@ type provisioner struct {
 	databaseUser string
 	secretPath string
 	phpVersion string
+	nginxConfig string
 }
 
 func main() {
@@ -100,6 +101,7 @@ func main() {
 		// Keep detailed diagnostics on stderr for the privileged worker to log
 		// server-side. The JSON response remains deliberately generic.
 		fmt.Fprintf(os.Stderr, "SPanel provisioning failed for website %d: %v\n", req.WebsiteID, err)
+		p.captureFailureDiagnostics(req, err)
 		p.rollback()
 		failFor(req, "provisioning_failed")
 	}
@@ -302,6 +304,7 @@ func (p *provisioner) run(r request) error {
 	if _, err := run(15*time.Second, "/usr/sbin/php-fpm"+p.phpVersion, "-t"); err != nil { return err }
 	if err := runCommand(15*time.Second, "/bin/systemctl", "reload", "php"+p.phpVersion+"-fpm"); err != nil { return err }
 	p.poolReloaded = true
+	p.nginxConfig = nginxConfig
 	if err := atomicWrite(p.nginxPath, nginxConfig, 0644); err != nil { return err }
 	p.nginxInstalled = true
 	if _, err := run(15*time.Second, "/usr/sbin/nginx", "-t"); err != nil { return err }
@@ -354,6 +357,63 @@ func (p *provisioner) run(r request) error {
 	}
 	if r.CreateDatabase { if err := p.createWebsiteDatabase(); err != nil { return err } }
 	return nil
+}
+
+ 
+// captureFailureDiagnostics runs before rollback so the generated vhost and
+// the routing response survive removal of partially provisioned resources.
+// Files are root-only and deliberately omit the full nginx -T dump, which may
+// contain unrelated site configuration.
+func (p *provisioner) captureFailureDiagnostics(r request, cause error) {
+	const directory = "/var/log/spanel/provisioning-diagnostics"
+	if err := os.MkdirAll(directory, 0700); err != nil {
+		fmt.Fprintf(os.Stderr, "SPanel diagnostics could not create directory: %v\n", err)
+		return
+	}
+	if err := os.Chmod(directory, 0700); err != nil {
+		fmt.Fprintf(os.Stderr, "SPanel diagnostics could not secure directory: %v\n", err)
+		return
+	}
+	var report strings.Builder
+	fmt.Fprintf(&report, "SPanel provisioning failure\nTime: %s\nWebsite ID: %d\nDomain: %s\nPHP: %s\nCause: %v\n\n", time.Now().UTC().Format(time.RFC3339), r.WebsiteID, r.Domain, p.phpVersion, cause)
+	if p.nginxConfig != "" {
+		report.WriteString("--- Generated website virtual host (before rollback) ---\n")
+		report.WriteString(p.nginxConfig)
+		report.WriteString("\n")
+	}
+	if regularExecutable("/usr/sbin/nginx") {
+		if dump, err := runWithOutputLimit(10*time.Second, 262144, "/usr/sbin/nginx", "-T"); err == nil {
+			report.WriteString("--- Relevant effective Nginx routing lines ---\n")
+			for _, line := range strings.Split(string(dump), "\n") {
+				if strings.Contains(line, "configuration file /etc/nginx/sites-enabled/") ||
+					strings.Contains(line, "server_name ") || strings.Contains(line, "root ") ||
+					strings.Contains(line, "listen ") || strings.Contains(line, "default_server") {
+					report.WriteString(line + "\n")
+				}
+			}
+		} else {
+			fmt.Fprintf(&report, "nginx -T diagnostic failed: %v\n", err)
+		}
+	}
+	if regularExecutable("/usr/bin/curl") && validDomain(r.Domain) {
+		report.WriteString("\n--- Direct loopback HTTP response before rollback ---\n")
+		out, err := runWithOutputLimit(8*time.Second, 8192, "/usr/bin/curl", "--include", "--silent", "--show-error", "--max-time", "5", "--noproxy", "*", "--resolve", r.Domain+":80:127.0.0.1", "http://"+r.Domain+"/")
+		if err != nil {
+			fmt.Fprintf(&report, "curl diagnostic failed: %v\n", err)
+		} else {
+			text := string(out)
+			if len(text) > 6000 { text = text[:6000] }
+			report.WriteString(text)
+			if !strings.HasSuffix(text, "\n") { report.WriteString("\n") }
+		}
+	}
+	name := fmt.Sprintf("website-%d-%s.log", r.WebsiteID, time.Now().UTC().Format("20060102T150405.000000000"))
+	path := filepath.Join(directory, name)
+	if err := atomicWrite(path, report.String(), 0600); err != nil {
+		fmt.Fprintf(os.Stderr, "SPanel diagnostics could not be saved: %v\n", err)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "SPanel failure diagnostics saved to %s\n", path)
 }
 
 func (p *provisioner) rollback() {
