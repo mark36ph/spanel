@@ -15,14 +15,14 @@ readonly NGINX_LINK="/etc/nginx/sites-enabled/spanel"
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 info() { printf '\n==> %s\n' "$*"; }
 
-[[ "$(id -u)" -eq 0 ]] || fail "Run with sudo: sudo bash install/ubuntu-vm-install.sh"
+[[ "$(id -u)" -eq 0 ]] || fail "Run with sudo: sudo bash install/ubuntu-vps-install.sh"
 [[ -f /etc/os-release ]] || fail "Cannot identify the operating system."
 # shellcheck disable=SC1091
 source /etc/os-release
 [[ "${ID:-}" == "ubuntu" && "${VERSION_ID:-}" == "26.04" ]] || fail "This VPS installer supports Ubuntu Server 26.04 only."
 [[ -f "$(pwd)/database/schema.sql" && -f "$(pwd)/bin/migrate.php" && -f "$(pwd)/config/config.example.php" ]] || fail "Run this script from the root of the SPanel repository checkout."
 [[ ! -e "$APP_DIR" ]] || fail "$APP_DIR already exists. This installer refuses to overwrite an existing install or its configuration."
-[[ ! -e "/etc/spanel" && ! -e "/var/lib/spanel" ]] || fail "SPanel secret-store paths already exist. Inspect them first and use a clean disposable VM."
+[[ ! -e "/etc/spanel" && ! -e "/var/lib/spanel" ]] || fail "SPanel secret-store paths already exist. Inspect them first and use a clean VPS."
 [[ ! -e "$NGINX_SITE" && ! -e "$NGINX_LINK" ]] || fail "An SPanel Nginx site already exists; inspect it before proceeding."
 [[ ! -e "/usr/local/sbin/spanel-ops" && ! -e "/usr/local/sbin/spanel-file-ops" && ! -e "/usr/local/sbin/spanel-pma-credential-broker" && ! -e "/etc/sudoers.d/spanel-ops" ]] || fail "A SPanel operations helper or sudoers rule already exists; inspect it before proceeding."
 [[ ! -e "/etc/phpmyadmin/conf.d/99-spanel.php" ]] || fail "An existing SPanel phpMyAdmin configuration was found; inspect it before proceeding."
@@ -31,16 +31,23 @@ command -v apt-get >/dev/null 2>&1 || fail "apt-get is required."
 command -v systemctl >/dev/null 2>&1 || fail "systemd is required."
 command -v openssl >/dev/null 2>&1 || fail "openssl is required to generate a database password."
 command -v sudo >/dev/null 2>&1 || fail "sudo is required to run panel setup commands as the unprivileged service account."
-getent passwd spanel-pma >/dev/null && fail "The spanel-pma account already exists. Use a clean VM rather than adopting an unverified account."
-getent group spanel-pma >/dev/null && fail "The spanel-pma group already exists. Use a clean VM rather than adopting an unverified group."
+getent passwd spanel-pma >/dev/null && fail "The spanel-pma account already exists. Use a clean VPS rather than adopting an unverified account."
+getent group spanel-pma >/dev/null && fail "The spanel-pma group already exists. Use a clean VPS rather than adopting an unverified group."
 AVAILABLE_KB="$(df -Pk / | awk 'NR == 2 {print $4}')"
 [[ "$AVAILABLE_KB" =~ ^[0-9]+$ && "$AVAILABLE_KB" -ge 3000000 ]] || fail "At least 3 GB of free disk space is required."
 if [[ -e /etc/nginx/sites-enabled/default && ! -L /etc/nginx/sites-enabled/default ]]; then
     fail "Unexpected default Nginx site; inspect it before installing."
 fi
 if command -v ss >/dev/null 2>&1 && ss -ltnH '( sport = :80 )' | grep -q .; then
-    fail "TCP port 80 is already in use. Stop the existing web server or use a clean VM."
+    fail "TCP port 80 is already in use. Stop the existing web server or use a clean VPS."
 fi
+
+# Prevent package scripts from briefly exposing the default Nginx site.
+[[ ! -e /usr/sbin/policy-rc.d ]] || fail "Existing service-start policy found; inspect before installing."
+cleanup_apt_policy() { rm -f /usr/sbin/policy-rc.d; }
+trap cleanup_apt_policy EXIT
+printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
+chmod 0755 /usr/sbin/policy-rc.d
 
 info "Installing panel runtime packages"
 export DEBIAN_FRONTEND=noninteractive
@@ -48,6 +55,8 @@ apt-get update
 apt-get install -y nginx mariadb-server php-fpm php-cli php-mysql php-mbstring php-xml php-curl php-intl git ca-certificates tar openssl curl golang-go debconf-utils
 printf 'phpmyadmin phpmyadmin/dbconfig-install boolean false\nphpmyadmin phpmyadmin/reconfigure-webserver multiselect \n' | debconf-set-selections
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends phpmyadmin
+cleanup_apt_policy
+trap - EXIT
 
 PHP_VERSION="$(php -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
 PHP_VERSION_ID="$(php -r 'echo PHP_VERSION_ID;')"
@@ -63,7 +72,7 @@ readonly PHP_PMA_FPM_POOL="/etc/php/${PHP_VERSION}/fpm/pool.d/spanel-pma.conf"
 
 info "Creating the dedicated, non-root panel account and application directory"
 if getent passwd "$APP_USER" >/dev/null; then
-    fail "The '$APP_USER' account already exists. Inspect it first and use a clean VM; the installer will not adopt an unverified account."
+    fail "The '$APP_USER' account already exists. Inspect it first and use a clean VPS; the installer will not adopt an unverified account."
 fi
 useradd --system --user-group --home-dir "$APP_DIR" --no-create-home --shell /usr/sbin/nologin "$APP_USER"
 useradd --system --user-group --home-dir /var/lib/spanel/phpmyadmin --no-create-home --shell /usr/sbin/nologin spanel-pma
@@ -141,10 +150,10 @@ chmod 0600 /etc/spanel/database-secrets.key
 info "Starting MariaDB and generating private panel database credentials"
 systemctl enable --now mariadb
 if mariadb -Nse "SHOW DATABASES LIKE '$DB_NAME'" | grep -Fxq "$DB_NAME"; then
-    fail "A database named '$DB_NAME' already exists. Inspect it and use a clean VM rather than overwriting it."
+    fail "A database named '$DB_NAME' already exists. Inspect it and use a clean VPS rather than overwriting it."
 fi
 if mariadb -Nse "SELECT CONCAT(User, '@', Host) FROM mysql.user WHERE User = '$DB_USER' AND Host IN ('localhost', '127.0.0.1')" | grep -q .; then
-    fail "A database account for '$DB_USER' already exists. Inspect it and use a clean VM."
+    fail "A database account for '$DB_USER' already exists. Inspect it and use a clean VPS."
 fi
 DB_PASSWORD="$(openssl rand -hex 32)"
 # Password is generated as hex so it is safe in the quoted SQL literal below.
@@ -383,7 +392,7 @@ server {
 NGINX
 # Ubuntu's packaged default site is a default_server and would intercept the
 # provisioner's localhost health check for newly-created virtual hosts.
-# This installer only runs on a clean VM, so remove that exact packaged link.
+# This installer only runs on a clean VPS, so remove that exact packaged link.
 if [[ -L /etc/nginx/sites-enabled/default ]] \
     && [[ "$(readlink -f /etc/nginx/sites-enabled/default)" == "/etc/nginx/sites-available/default" ]]; then
     rm /etc/nginx/sites-enabled/default
